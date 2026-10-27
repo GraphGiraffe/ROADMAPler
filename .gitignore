@@ -1,0 +1,11 @@
+.agents/
+.aws/
+.codex/
+node_modules/
+dist/
+site/
+artifacts/
+test-results/
+tmp_files/
+*.log
+.DS_Store
