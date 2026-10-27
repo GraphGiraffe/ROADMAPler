@@ -1,4 +1,4 @@
-# RADMAPler
+# ROADMAPler
 
 Наработки отдельного приложения для планирования любых проектов: треки, релизы, карточки и backlog. Исходный прототип вырос из роадмапа PlayRoom; данные конкретного проекта отделены от сайта.
 
@@ -8,7 +8,7 @@
 - `projects/playroom.roadmap.json` — отдельный проект PlayRoom: 65 карточек, 12 треков. Его можно импортировать кнопкой «Импорт JSON». В сайт эти данные не встроены.
 - `archive/prototypes/` — сохранённые предыдущие HTML с данными PlayRoom; `archive/previews/` — снимки предыдущих версий. Это история разработки, не публикация.
 
-Репозиторий: [GraphGiraffe/ROADMAPler](https://github.com/GraphGiraffe/ROADMAPler). Сайт: [RADMAPler](https://graphgiraffe.github.io/ROADMAPler/).
+Репозиторий: [GraphGiraffe/ROADMAPler](https://github.com/GraphGiraffe/ROADMAPler). Сайт: [ROADMAPler](https://graphgiraffe.github.io/ROADMAPler/).
 
 GitHub Pages публикует **только `site/`**. Корень, `projects/` и `archive/` не являются веб-дистрибутивом; они сохраняются в репозитории как исходники и история разработки.
 
