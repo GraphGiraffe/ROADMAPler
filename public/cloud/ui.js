@@ -143,6 +143,7 @@
  window.addEventListener('online',()=>{delay=100;notify()});window.addEventListener('offline',()=>setStatus(client?'Нет сети. Изменения сохранены на устройстве.':'Локальный режим',client?'offline':'local'));
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){delay=100;notify()}});
  for(const id of ['projectDialog','taskDialog','releaseDialog','trackDialog'])$(id).addEventListener('close',notify);
+ window.RoadmapIntegrations?.init({app,getClient:()=>config?.provider==='supabase'?client:null,getGeneration:()=>generation,showAccount});
  fields();
  try{
   const raw=localStorage.getItem(key)||sessionStorage.getItem(key);if(raw){const saved=JSON.parse(raw);$('cloudProvider').value=saved.provider;$('cloudRemember').checked=!!saved.remember;
