@@ -1,7 +1,7 @@
 (() => {
   const byId = id => document.getElementById(id);
   if (!isSecureContext || !['http:', 'https:'].includes(location.protocol) || !('serviceWorker' in navigator)) return;
-  let prompt = null, registration = null, applying = false, timer, lastCheck = 0;
+  let prompt = null, registration = null, applying = false, timer, lastCheck = 0, announcedUpdate = false;
   const mode = matchMedia('(display-mode: standalone)');
   const installed = () => mode.matches || navigator.standalone === true;
   const message = text => { byId('pwaPanel').hidden = false; byId('pwaMessage').textContent = text; };
@@ -20,9 +20,12 @@
     refreshInstall();
   };
   const refreshWaiting = () => {
-    if (registration?.waiting) {
+    if (registration?.waiting && navigator.serviceWorker.controller) {
+      announcedUpdate = true;
       byId('applyUpdate').hidden = false;
       message('Доступно обновление. Примените его, когда закончите редактирование. Проекты и история отмены сохранятся.');
+    } else if (announcedUpdate) {
+      byId('applyUpdate').hidden = true; byId('pwaPanel').hidden = true; announcedUpdate = false;
     }
   };
   const watch = worker => {
@@ -61,7 +64,7 @@
     } catch (error) { message(error.message || 'Не удалось сохранить состояние. Экспортируйте проект перед обновлением.'); }
   };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (applying) { clearTimeout(timer); location.reload(); }
+    if (applying) { clearTimeout(timer); location.reload(); } else refreshWaiting();
   });
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(value => {
     registration = value; byId('checkUpdate').hidden = false;
