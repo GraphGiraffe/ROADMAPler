@@ -46,6 +46,20 @@ html{scrollbar-gutter:auto}body{overflow:hidden}main{height:100vh;height:100dvh;
 @media(max-width:760px){.track-row>.card{margin:6px}.track-row>.card .range-resize{width:28px}.row-cell>.add-card{bottom:7px;left:7px}}
 @media print{.range-resize{display:none!important}.track-row>.track{position:static}.track-row>.card{break-inside:avoid}}
 dialog a{color:var(--accent);text-underline-offset:3px}
+
+.danger{color:#a0392f;border-color:#bd756b}#deleteProject{margin-right:auto}#importDialog .actions{flex-wrap:wrap}#statusMessage:has(button){pointer-events:auto}#statusMessage button{padding:3px 7px;min-height:28px;background:var(--paper);color:var(--ink)}
+/* Compact board: row heights grow with content; entity controls stay in normal flow. */
+.board{--label:148px;--col:212px;--collapsed-col:42px;--add-col:44px;--card-lane:64px;--add-row:40px;--empty-row:78px}
+.head{min-height:68px;padding:6px 8px}.head:not(.corner){padding-right:8px;padding-bottom:32px}.head h2{margin:0}.head h2 .name-button{font-size:13px;min-height:24px;padding:0;line-height:1.25}.head p{margin:2px 0;font-size:10px;overflow-wrap:anywhere}.head:not(.corner)>p:last-of-type{max-width:calc(100% - 58px)}.column-default-label{display:none}.corner{font-size:12px}.corner>p{display:none}
+.column-tools{position:absolute;right:4px;bottom:3px;display:flex;gap:2px}.column-tools>.edit-entity,.column-tools>.visibility-button,.track-tools>.edit-entity,.track-tools>.visibility-button{position:static;width:28px;height:28px;min-height:28px;padding:5px;margin:0;border-radius:8px;flex:none}.column-tools svg,.track-tools svg{width:17px;height:17px}
+.track-row>.track{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:6px 7px}.track>.name-button{font-size:12px;line-height:1.25;min-height:0;padding:0;text-align:left;overflow-wrap:anywhere}.track small{margin:0;font-size:10px;line-height:1.3}.track-subtitle:empty{display:none}.track-tools{display:flex;gap:4px;margin-top:auto;padding-top:3px}.track-row>.collapsed-track{padding:5px;gap:2px}.collapsed-track small{overflow-wrap:anywhere}
+.track-row>.card{margin:4px;border-radius:12px}.track-row>.card .card-open{min-height:54px;padding:6px 34px 6px 7px;line-height:1.3}.card-open strong{font-size:13px;overflow-wrap:anywhere}.card-open small{font-size:10px;margin-top:3px;line-height:1.25}.card>.edit-entity{width:26px;min-height:26px;height:26px;top:3px;right:3px;padding:4px;border-radius:7px}.card .status-mark{max-height:72px}.track-row>.card .range-resize{top:30px;min-height:24px;width:28px}.row-cell>.add-card{width:32px;height:32px;min-height:32px;bottom:4px;left:6px;border-radius:10px;padding:5px}.add-card svg{width:20px;height:20px}.add-board-button{width:32px;height:32px;min-height:32px;padding:5px}.add-column{padding:5px!important}.add-track{padding:6px;min-height:44px}.add-track-tail{min-height:44px}
+@media(max-width:760px){
+ main{padding:6px;gap:4px}.topbar{padding:0 2px 4px}.brand{font-size:20px;gap:5px}.brand-mark{width:28px;height:28px}.header-tools{gap:4px}.header-tools .icon-button,.header-tools summary{width:32px;height:32px;min-height:32px;padding:5px}.project-tabs{padding:0}.project-tabs .project-tab{min-height:30px;padding:4px 9px;font-size:12px}.projects-bar>.icon-button{width:30px;height:30px;min-height:30px;padding:4px}
+ .workspace-toolbar{display:flex;flex-wrap:nowrap;gap:4px}.workspace-actions,.action-group{gap:3px}.workspace-actions button{min-height:32px;height:32px;padding:3px}.workspace-actions #newTask{width:32px}.history-actions button{width:28px}.history-actions{margin-left:0}.toolbar.filters{min-width:0;width:auto;gap:4px!important}.filters label:has(#filter){flex:0 0 86px}.filters input[type=search]{height:32px;min-height:32px;padding:4px 6px;font-size:16px}.filters .select-trigger{height:32px;min-height:32px;padding:4px 6px;font-size:12px;border-radius:10px}
+ .board{--label:84px;--col:128px;--collapsed-col:32px;--add-col:36px;--card-lane:56px;--add-row:36px;--empty-row:70px}.head{min-height:62px;padding:5px 6px}.head:not(.corner){padding-right:6px;padding-bottom:31px}.head h2 .name-button{font-size:12px;min-height:22px}.head p{font-size:9px}.track-row>.track{padding:5px;gap:2px}.track>.name-button{font-size:11px}.track small{font-size:9px}.track-tools{gap:3px;padding-top:2px}.track-row>.card .card-open{min-height:48px;padding:5px 31px 5px 6px}.card-open strong{font-size:12px}.card-open small{font-size:9px;margin-top:2px}.board-scroll{border-radius:12px}
+}
+@media print{.column-tools,.track-tools{display:none}}
 </style></head><body><main><header class="topbar"><div class="brand"><svg class="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
 <rect width="512" height="512" rx="112" fill="#f3f0e7"/>
 <rect x="83" y="84" width="342" height="348" rx="30" fill="#356951"/>
@@ -93,7 +107,7 @@ dialog a{color:var(--accent);text-underline-offset:3px}
 <input id="projectFile" type="file" accept=".json,application/json" hidden>
 </nav>
 
-<div class="toolbar filters"><label class="search-field"><span class="sr-only">Поиск задач</span><input type="search" id="search" aria-label="Поиск задач" placeholder="Поиск по задачам…"></label><label><span class="sr-only">Трек</span><select id="filter"><option value="all">Все треки</option></select></label></div></div>
+<div class="toolbar filters"><label class="search-field"><span class="sr-only">Поиск задач</span><input type="search" id="search" aria-label="Поиск задач" placeholder="Поиск…"></label><label><span class="sr-only">Трек</span><select id="filter"><option value="all">Все треки</option></select></label></div></div>
 <section id="pwaPanel" class="pwa-panel" aria-label="Приложение" data-pwa hidden><p id="pwaMessage" role="status" aria-live="polite"></p><button id="applyUpdate" type="button" class="primary" hidden>Обновить и продолжить</button></section>
 <span id="counts" class="sr-only"></span>
 
@@ -104,7 +118,9 @@ dialog a{color:var(--accent);text-underline-offset:3px}
 <dialog id="releaseDialog"><form id="releaseForm" novalidate><h2 id="releaseDialogTitle">Новый релиз</h2><label>Название<input id="releaseName" required maxlength="100" placeholder="Например: 0.20 — новые игры"></label><label>Описание<input id="releaseNote" maxlength="200" placeholder="Задача выпуска или комментарий"></label><label>Позиция<select id="releasePosition"></select></label><label>Статус по умолчанию<select id="releaseDefaultStatus" data-status-options="true"></select></label><div class="actions"><button type="button" id="deleteRelease" hidden>Удалить релиз</button><button type="button" id="cancelRelease">Отмена</button><button type="submit" class="primary">Сохранить</button></div><p class="note">При удалении релиза его задачи вернутся в backlog. Отменить можно общей кнопкой.</p></form></dialog>
 <dialog id="cardView"><div class="eyebrow" id="viewStatus"></div><h2 id="viewTitle"></h2><h3>Описание</h3><p id="viewDescription" class="paragraphs"></p><h3>Условие готовности / уточнение</h3><p id="viewAcceptance" class="paragraphs"></p><p id="viewSource" class="note"></p><div class="actions"><button type="button" id="viewEdit">Редактировать</button><button type="button" id="viewClose" class="primary">Закрыть</button></div></dialog>
 <dialog id="taskDialog"><form id="taskForm" novalidate><h2 id="taskDialogTitle">Новая карточка</h2><label>Название<input id="taskName" required maxlength="180"></label><label>Описание<textarea id="taskBody" rows="5" required maxlength="12000" placeholder="Что нужно сделать и зачем. Можно писать несколькими абзацами."></textarea></label><div class="editor"><label>Трек<select id="taskTrack"></select></label><label>С релиза<select id="taskRelease"></select></label><label>До релиза<select id="taskReleaseEnd"></select></label><label>Статус<select id="taskState" data-status-options="true"><option value="idea">Идея</option><option value="check">Нужно проверить</option><option value="planned">Запланировано</option><option value="work">В работе</option><option value="done">Выполнено</option><option value="blocked">Заблокировано</option><option value="paused">На паузе</option></select></label></div><label>Позиция в ячейке<select id="taskPosition"></select></label><label>Условие готовности / уточнение<textarea id="taskAcceptance" rows="3" maxlength="6000"></textarea></label><label>Ваш комментарий / источник<input id="taskComment" maxlength="1000" placeholder="Ссылка или примечание"></label><div class="actions"><button type="button" id="taskCancel">Отмена</button><button type="submit" class="primary">Сохранить карточку</button></div></form></dialog>
-<dialog id="projectDialog"><form id="projectForm" novalidate><h2 id="projectDialogTitle">Название проекта</h2><label>Название<input id="projectTitle" required maxlength="160"></label><label>Описание<textarea id="projectNote" rows="3" maxlength="2000"></textarea></label><p id="projectError" class="note" role="status"></p><div class="actions"><button type="button" id="projectCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>
+<dialog id="projectDialog"><form id="projectForm" novalidate><h2 id="projectDialogTitle">Название проекта</h2><label>Название<input id="projectTitle" required maxlength="160"></label><label>Описание<textarea id="projectNote" rows="3" maxlength="2000"></textarea></label><p id="projectError" class="note" role="status"></p><div class="actions"><button type="button" id="deleteProject" class="danger">Удалить проект</button><button type="button" id="projectCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>
+<dialog id="deleteProjectDialog" aria-labelledby="deleteProjectTitle"><h2 id="deleteProjectTitle">Удалить проект?</h2><p id="deleteProjectMessage"></p><p class="field-error" id="deleteProjectError" role="status"></p><div class="actions"><button type="button" id="cancelDeleteProject">Отмена</button><button type="button" id="confirmDeleteProject" class="danger">Удалить</button></div></dialog>
+<dialog id="importDialog" aria-labelledby="importTitle"><h2 id="importTitle">Импорт проекта</h2><p id="importMessage"></p><label id="importTargetField">Обновить проект<select id="importTarget"></select></label><p class="field-error" id="importError" role="status"></p><div class="actions"><button type="button" id="cancelImport">Отмена</button><button type="button" id="createImported">Создать новый</button><button type="button" id="updateImported" class="primary">Обновить</button></div></dialog>
 <dialog id="trackDialog"><form id="trackForm" novalidate><h2 id="trackDialogTitle">Новый трек</h2><label>Название<input id="trackName" required maxlength="100"></label><label>Описание<input id="trackSubtitle" maxlength="300"></label><label>Позиция в таблице<select id="trackPosition"></select></label><label id="trackDeleteOptions">При удалении перенести карточки в<select id="trackDestination"></select></label><p class="note">Последний трек удалить нельзя. Изменения можно отменить.</p><div class="actions"><button type="button" id="deleteTrack">Удалить трек</button><button type="button" id="trackCancel">Отмена</button><button type="submit" class="primary">Сохранить</button></div></form></dialog>
 <script id="roadmapData" type="application/json">{"schema": 2, "format": "roadmap-project", "formatVersion": 1, "project": {"id": "new-project", "name": "Новый проект", "description": "", "updatedAt": "2026-10-27"}, "tracks": [{"id": "product", "title": "Продукт", "subtitle": ""}, {"id": "ui", "title": "Интерфейс", "subtitle": ""}, {"id": "tech", "title": "Технологии", "subtitle": ""}, {"id": "quality", "title": "Качество", "subtitle": ""}, {"id": "docs", "title": "Документация", "subtitle": ""}], "releases": [], "tasks": [], "sources": []}</script>
 <script>
@@ -193,7 +209,7 @@ function createCard(task){
 }
 function draw(){
  renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
- const filter=$('filter').value,cols=[...state.releases,{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'54px':r.id==='add-release'?'76px':'var(--col)').join(' ');
+ const filter=$('filter').value,cols=[...state.releases,{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'var(--col)').join(' ');
  $('filter').replaceChildren();option($('filter'),'all','Все треки');for(const track of state.tracks)option($('filter'),track.id,track.title);$('filter').value=state.tracks.some(t=>t.id===filter)?filter:'all';
  const board=$('board');board.replaceChildren();board.style.gridTemplateColumns=template;
  const corner=text('div','Треки','head corner');corner.append(text('p','Релизы →'));board.append(corner);
@@ -205,8 +221,8 @@ function draw(){
   const heading=text('h2',''),name=text('button',release.title,'name-button');name.type='button';name.title='Настройки '+release.title;name.onclick=()=>openRelease(release.id);heading.append(name);header.append(heading);
   if(release.note)header.append(text('p',release.note));if(status)header.append(text('p',labels[status],'column-default-label'));
   header.append(text('p',state.tasks.filter(t=>taskReleases(t).includes(release.id)).length+' карточек'));
-  if(!release.locked){const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать '+(release.id==='backlog'?'backlog':'релиз '+release.title));edit.onclick=()=>openRelease(release.id);header.append(edit)}
-  header.append(visibilityButton(false,'Скрыть '+release.title,()=>toggleRelease(release.id)));board.append(header);
+  const tools=text('div','','column-tools');if(!release.locked){const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать '+(release.id==='backlog'?'backlog':'релиз '+release.title));edit.onclick=()=>openRelease(release.id);tools.append(edit)}
+  tools.append(visibilityButton(false,'Скрыть '+release.title,()=>toggleRelease(release.id)));header.append(tools);board.append(header);
  }
  const query=$('search').value.trim().toLocaleLowerCase('ru');let visible=0;
  for(const track of state.tracks){
@@ -217,10 +233,10 @@ function draw(){
   if(query&&!tasks.length)continue;
   const lanes=[],placements=[];
   for(const task of tasks){const covered=taskReleases(task).filter(id=>!isCollapsed(id));if(!covered.length)continue;const start=cols.findIndex(r=>r.id===covered[0]),end=cols.findIndex(r=>r.id===covered.at(-1));let lane=0;while(lanes[lane]?.some(range=>start<=range.end&&end>=range.start))lane++;(lanes[lane]??=[]).push({start,end});placements.push({task,start,end,lane})}
-  const height=lanes.length;row.style.gridTemplateRows=(height?'repeat('+height+', minmax(88px,auto)) ':'')+(height?'58px':'100px');
+  const height=lanes.length;row.style.gridTemplateRows=(height?'repeat('+height+', minmax(var(--card-lane),auto)) ':'')+(height?'var(--add-row)':'minmax(var(--empty-row),auto)');
   const label=text('div','','track');label.style.gridRow='1 / span '+(height+1);label.style.gridColumn='1';
-  const name=text('button',track.title,'name-button');name.type='button';name.title='Редактировать трек';name.onclick=()=>openTrack(track.id);label.append(name,text('small',track.subtitle),text('small',tasks.length+' карточек'));
-  const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);label.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));row.append(label);
+  const name=text('button',track.title,'name-button');name.type='button';name.title='Редактировать трек';name.onclick=()=>openTrack(track.id);label.append(name,text('small',track.subtitle,'track-subtitle'),text('small',tasks.length+' карточек','track-count'));
+  const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);const tools=text('div','','track-tools');tools.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));label.append(tools);row.append(label);
   for(const [index,release] of cols.entries()){
    const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;cell.style.gridColumn=String(index+2);cell.style.gridRow='1 / span '+(height+1);
    if(!isCollapsed(release.id)&&release.id!=='add-release'){const add=text('button','','add-card');add.type='button';add.innerHTML=toolIcon('plus');add.title='Создать карточку';add.setAttribute('aria-label','Создать карточку: '+track.title+' / '+release.title);add.onclick=()=>openTaskEditor(null,track.id,release.id);cell.append(add)}row.append(cell);
@@ -307,7 +323,28 @@ function validateProject(value){
  return value;
 }
 $('exportProject').onclick=()=>{const exported=clone(state);exported.project.updatedAt=new Date().toISOString();const blob=new Blob([JSON.stringify(exported,null,2)+'\n'],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='project.roadmap.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)};
-$('importProject').onclick=()=>$('projectFile').click();let importPending=false;$('projectFile').onchange=async()=>{const file=$('projectFile').files[0];if(!file)return;importPending=true;try{const imported=validateProject(JSON.parse(await file.text()));change(()=>{state=imported;selected=state.tasks[0]?.id;$('filter').value='all';$('search').value=''},'Проект импортирован. Импорт можно отменить.');}catch(e){$('statusMessage').textContent='Импорт не выполнен: '+e.message}finally{importPending=false;$('projectFile').value=''}};
+$('importProject').onclick=()=>$('projectFile').click();let importPending=false,pendingImport=null;
+$('projectFile').onchange=async()=>{const file=$('projectFile').files[0];if(!file)return;importPending=true;try{
+ pendingImport=validateProject(JSON.parse(await file.text()));
+ const name=pendingImport.project.name.trim(),matches=vault.projects.filter(p=>p.data.project.name.trim()===name);
+ $('importMessage').textContent=matches.length?'Проект «'+name+'» уже есть. Обновить его содержимое из файла или создать отдельный проект? Обновление можно отменить.':'Создать проект «'+name+'» из файла?';
+ $('importTarget').replaceChildren();for(const [index,p] of matches.entries())option($('importTarget'),p.id,p.data.project.name+(matches.length>1?' · '+(index+1):''));
+ $('importTargetField').hidden=matches.length<2;$('updateImported').hidden=!matches.length;$('createImported').classList.toggle('primary',!matches.length);$('importError').textContent='';refreshSelects();$('importDialog').showModal();$('cancelImport').focus();
+ }catch(e){pendingImport=null;$('statusMessage').textContent='Импорт не выполнен: '+e.message}finally{importPending=false;$('projectFile').value=''}};
+$('cancelImport').onclick=()=>$('importDialog').close();$('importDialog').addEventListener('close',()=>{pendingImport=null;closeSelectMenu()});
+$('createImported').onclick=()=>commitImport(false);$('updateImported').onclick=()=>commitImport(true);
+function commitImport(update){
+ if(!pendingImport)return;
+ try{
+  const target=update?vault.projects.find(p=>p.id===$('importTarget').value):null;if(update&&!target)throw Error('Выберите проект для обновления.');
+  const id=target?.id||'project-'+crypto.randomUUID(),data=clone(pendingImport);data.project.id=target?.data.project.id||id;
+  rememberProject();const projects=vault.projects.map(p=>p.id===vault.active?{...p,data:clone(state)}:p),before=projects.find(p=>p.id===id);
+  const next=before?projects.map(p=>p.id===id?{id,data}:p):[...projects,{id,data}];
+  writeVault({...vault,active:id,projects:next});
+  const previous=projectSessions.get(id);projectSessions.set(id,{undo:before?[...(previous?.undo||[]),JSON.stringify(before.data)]:[],redo:[]});
+  $('importDialog').close();activateProject();$('statusMessage').textContent=update?'Проект обновлён из файла. Доступна отмена.':'Проект создан из файла.';
+ }catch(error){$('importError').textContent=error.message}
+}
 $('aboutApp').onclick=()=>$('aboutDialog').showModal();$('aboutClose').onclick=()=>$('aboutDialog').close();
 $('print').onclick=()=>window.print();
 $('save').onclick=()=>{const html=document.documentElement.cloneNode(true);html.dataset.portable='true';html.querySelectorAll('.select-control').forEach(wrapper=>{const select=wrapper.querySelector('select');select.hidden=false;wrapper.replaceWith(select)});html.querySelectorAll('.select-menu').forEach(menu=>menu.remove());html.querySelectorAll('[data-pwa]').forEach(n=>n.remove());html.querySelector('.project-menu').removeAttribute('open');html.querySelector('#roadmapData').textContent=JSON.stringify(state).replace(/</g,'\\u003c');html.querySelector('#board').replaceChildren();for(const id of ['filter','sourceList'])html.querySelector('#'+id).replaceChildren();option(html.querySelector('#filter'),'all','Все треки');html.querySelector('#search').setAttribute('value','');html.querySelector('#showDone').setAttribute('checked','');html.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));html.querySelector('#statusMessage').textContent='Сохранённая расстановка загружена. Можно продолжить редактирование.';const blob=new Blob(['<!doctype html>\n'+html.outerHTML],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='roadmapler-project.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);$('statusMessage').textContent='HTML подготовлен к скачиванию: релизы, карточки и порядок сохранены.'};
@@ -372,10 +409,12 @@ function writeVault(next){
 }
 function persistProject(nextActive=vault.active){writeVault({...vault,active:nextActive,projects:vault.projects.map(p=>p.id===vault.active?{...p,data:clone(state)}:p)})}
 function rememberProject(){projectSessions.set(vault.active,{undo:[...undoStack],redo:[...redoStack],selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked})}
+function activateProject(){
+ state=clone(vault.projects.find(p=>p.id===vault.active).data);const saved=projectSessions.get(vault.active);undoStack.length=0;redoStack.length=0;if(saved){undoStack.push(...saved.undo);redoStack.push(...saved.redo)}selected=saved?.selected||state.tasks[0]?.id;showBacklog=saved?.showBacklog??true;hiddenTracks.clear();hiddenReleases.clear();for(const id of saved?.hiddenTracks||[])hiddenTracks.add(id);for(const id of saved?.hiddenReleases||[])hiddenReleases.add(id);$('search').value=saved?.search||'';$('showDone').checked=saved?.showDone??true;draw();$('filter').value=saved?.filter||'all';draw();$('statusMessage').textContent='';document.querySelector('[role=tab][aria-selected=true]')?.scrollIntoView({block:'nearest',inline:'nearest'});
+}
 function switchProject(id){
  if(id===vault.active)return;if(document.querySelector('dialog[open]')||importPending)return;
- try{rememberProject();persistProject(id);state=clone(vault.projects.find(p=>p.id===id).data);const saved=projectSessions.get(id);undoStack.length=0;redoStack.length=0;if(saved){undoStack.push(...saved.undo);redoStack.push(...saved.redo)}selected=saved?.selected||state.tasks[0]?.id;showBacklog=saved?.showBacklog??true;hiddenTracks.clear();hiddenReleases.clear();for(const id of saved?.hiddenTracks||[])hiddenTracks.add(id);for(const id of saved?.hiddenReleases||[])hiddenReleases.add(id);$('search').value=saved?.search||'';$('showDone').checked=saved?.showDone??true;draw();$('filter').value=saved?.filter||'all';draw();$('statusMessage').textContent='';document.querySelector('[role=tab][aria-selected=true]')?.scrollIntoView({block:'nearest',inline:'nearest'});}
- catch(error){$('statusMessage').textContent=error.message}
+ try{rememberProject();persistProject(id);activateProject()}catch(error){$('statusMessage').textContent=error.message}
 }
 function renderProjectTabs(){
  const tabs=$('projectTabs');tabs.replaceChildren();
@@ -383,11 +422,21 @@ function renderProjectTabs(){
 }
 $('projectTabs').onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const index=vault.projects.findIndex(p=>p.id===vault.active),last=vault.projects.length-1;const next=event.key==='Home'?0:event.key==='End'?last:(index+(event.key==='ArrowRight'?1:-1)+vault.projects.length)%vault.projects.length;switchProject(vault.projects[next].id);document.getElementById('project-tab-'+vault.active)?.focus()};
 let creatingProject=false;
-function openProjectName(create=false){creatingProject=create;$('projectError').textContent='';$('projectDialogTitle').textContent=create?'Новый проект':'Название проекта';$('projectTitle').value=create?'':state.project.name;$('projectNote').value=create?'':state.project.description||'';$('projectDialog').showModal();$('projectTitle').focus();$('projectTitle').select()}
+function openProjectName(create=false){creatingProject=create;$('deleteProject').hidden=create;$('projectError').textContent='';$('projectDialogTitle').textContent=create?'Новый проект':'Название проекта';$('projectTitle').value=create?'':state.project.name;$('projectNote').value=create?'':state.project.description||'';$('projectDialog').showModal();$('projectTitle').focus();$('projectTitle').select()}
 $('newProject').onclick=()=>openProjectName(true);$('projectName').onclick=()=>openProjectName();$('projectCancel').onclick=()=>$('projectDialog').close();
 $('projectForm').onsubmit=event=>{event.preventDefault();const name=$('projectTitle').value.trim(),description=$('projectNote').value.trim();if(!name){showFieldError($('projectTitle'),'Введите название');return}
  if(!creatingProject){const saved=change(()=>{state.project.name=name;state.project.description=description},'Название проекта сохранено. Доступна отмена.');if(saved)$('projectDialog').close();return}
  try{rememberProject();persistProject();const id='project-'+crypto.randomUUID(),data=clone(template);data.project={id,name,description,updatedAt:new Date().toISOString()};writeVault({...vault,projects:[...vault.projects,{id,data}]});$('projectDialog').close();switchProject(id)}catch(error){$('statusMessage').textContent=error.message;$('projectError').textContent=error.message}
+};
+$('deleteProject').onclick=()=>{$('deleteProjectMessage').textContent='Удалить «'+state.project.name+'» и все его карточки из этого приложения?';$('deleteProjectError').textContent='';$('deleteProjectDialog').showModal();$('cancelDeleteProject').focus()};
+$('cancelDeleteProject').onclick=()=>$('deleteProjectDialog').close();
+$('confirmDeleteProject').onclick=()=>{
+ try{
+  const removed={id:vault.active,data:clone(state)},projects=vault.projects.filter(p=>p.id!==vault.active);
+  if(!projects.length){const id='project-'+crypto.randomUUID(),data=clone(template);data.project={id,name:'Новый проект',description:'',updatedAt:new Date().toISOString()};data.tasks=[];data.releases=[];data.sources=[];projects.push({id,data})}
+  rememberProject();writeVault({...vault,active:projects[0].id,projects});$('deleteProjectDialog').close();$('projectDialog').close();activateProject();
+  $('statusMessage').textContent='Проект удалён. ';const undo=text('button','Восстановить');undo.type='button';undo.onclick=()=>{try{rememberProject();persistProject();writeVault({...vault,active:removed.id,projects:[...vault.projects,removed]});activateProject();$('statusMessage').textContent='Проект восстановлен.'}catch(error){$('statusMessage').textContent=error.message}};$('statusMessage').append(undo);
+ }catch(error){$('deleteProjectError').textContent=error.message}
 };
 $('projectTitle').oninput=()=>$('projectTitle').setCustomValidity('');
 window.addEventListener('storage',event=>{if(event.key===vaultKey&&event.newValue!==vaultRaw)$('statusMessage').textContent='Проекты изменились в другой вкладке. Текущая работа остаётся открытой; перед перезагрузкой экспортируйте её.'});
@@ -423,7 +472,7 @@ if(location.protocol==='https:'||location.protocol==='http:'){
     }
   }catch(error){$('statusMessage').textContent='Восстановление после обновления: '+error.message+'. Снимок сохранён в этой вкладке.';}
 }
-new MutationObserver(()=>{clearTimeout(window.statusTimer);if($('statusMessage').textContent)window.statusTimer=setTimeout(()=>{$('statusMessage').textContent=''},7000)}).observe($('statusMessage'),{childList:true});
+new MutationObserver(()=>{clearTimeout(window.statusTimer);if($('statusMessage').textContent&&!$('statusMessage').querySelector('button'))window.statusTimer=setTimeout(()=>{$('statusMessage').textContent=''},7000)}).observe($('statusMessage'),{childList:true});
 // Close the action menu when a command is chosen, including on narrow screens.
 document.querySelector('.menu-panel').addEventListener('click',event=>{if(event.target.closest('button'))document.querySelector('.project-menu').open=false});
 document.addEventListener('click',event=>{if(!event.target.closest('.project-menu'))document.querySelector('.project-menu').open=false});
