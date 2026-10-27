@@ -1,21 +1,56 @@
-MIT License
+RADMAPler licensing
 
-Copyright (c) 2026 GraphGiraffe
+This file identifies the applicable standard licenses. It does not modify
+or add conditions to their texts.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Software
+--------
+Application code, HTML application/prototype files, scripts, configuration
+and other software material are licensed under:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+    PolyForm Noncommercial License 1.0.0
+    SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+    LICENSES/PolyForm-Noncommercial-1.0.0.md
+    https://polyformproject.org/licenses/noncommercial/1.0.0
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+The required attribution notices are in NOTICE.
+
+Documentation, original artwork and example project content
+-----------------------------------------------------------
+Original non-code documentation in Markdown files, original artwork in
+public/assets/, archive/branding/ and archive/previews/, and original
+example project content in projects/ are licensed under:
+
+    Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+    SPDX-License-Identifier: CC-BY-NC-SA-4.0
+    LICENSES/CC-BY-NC-SA-4.0.txt
+    https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+Attribution: GraphGiraffe, RADMAPler,
+https://github.com/GraphGiraffe/ROADMAPler
+
+Scope and other rights
+----------------------
+These are separate grants for the indicated materials, not a choice of
+either license for all files. License texts and separately identified
+third-party material retain their own terms. No trademark rights or
+endorsement are granted by these copyright licenses.
+
+Independent projects, plans and personal content entered or imported by
+users do not automatically acquire an application license. Application
+code included in an HTML export retains its applicable software license.
+
+Commercial permissions
+----------------------
+GraphGiraffe retains the ability to offer separate commercial permissions
+for rights it owns or otherwise controls. This notice does not grant
+commercial rights in another contributor's material; see CONTRIBUTING.md.
+The full standard licenses determine the publicly permitted uses.
+
+Historical MIT grant
+--------------------
+An earlier public revision was offered under MIT in commit 414464b7de746c6d85d77c081fad20606bc80416.
+That independent grant is not revoked by this notice. The historical MIT
+text is preserved in LICENSES/MIT-legacy.txt; its scope is the material
+offered in that revision, not an automatic MIT grant for later changes.
+See docs/LICENSING.md for the implications for the earlier code.

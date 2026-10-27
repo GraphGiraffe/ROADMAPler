@@ -22,4 +22,4 @@ const revision = hash.digest('hex').slice(0, 16);
 const worker = new URL('sw.js', output);
 await writeFile(worker, (await readFile(worker, 'utf8')).replace('__BUILD_REVISION__', revision));
 await writeFile(new URL('.nojekyll', output), '');
-console.log(`RoadMap built: public/ → site/, revision ${revision}`);
+console.log(`RADMAPler built: public/ → site/, revision ${revision}`);
