@@ -108,6 +108,13 @@
       "note": "27.10.2026 · облачный прототип cloud-sync-2026-10-27 · внешняя приёмка продолжается",
       "locked": false,
       "defaultStatus": "check"
+    },
+    {
+      "id": "integrations-next",
+      "title": "Интеграции",
+      "note": "Патч подготовлен локально; требуется SQL-обновление и публикация",
+      "defaultStatus": "check",
+      "locked": false
     }
   ],
   "tasks": [
@@ -682,6 +689,39 @@
       "accept": "Два реальных аккаунта не могут читать или менять данные друг друга; лимиты проверены на настроенном сервере.",
       "source": "",
       "comment": "Предварительный выпуск cloud-sync-2026-10-27. Локальные проверки пройдены; настоящий Supabase подключён, проверены CORS и запрет анонимного доступа. Авторизованная синхронизация ещё ожидает тестовых аккаунтов. См. docs/releases/cloud-sync-2026-10-27.md."
+    },
+    {
+      "id": "integration-scoped-tokens",
+      "title": "Токены для одного проекта",
+      "description": "Имя, отдельные права чтения/изменения/удаления, срок действия, отзыв и последний успешный запрос.",
+      "accept": "Секрет виден один раз, сервер хранит хеш; токен не открывает другой проект.",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "integrations-next",
+      "status": "check",
+      "source": "",
+      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
+    },
+    {
+      "id": "integration-api",
+      "title": "API с проверкой версии",
+      "description": "Серверная проверка токена через Supabase RPC и общий механизм валидации, CAS и истории.",
+      "accept": "Устаревшая запись возвращает 409 без перезаписи; после отзыва доступ запрещён.",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "integrations-next",
+      "status": "check",
+      "source": "",
+      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
+    },
+    {
+      "id": "integration-cli",
+      "title": "CLI без пароля аккаунта",
+      "description": "Чтение и изменение проекта с токеном из файла вне репозитория с правами 600.",
+      "accept": "Проверены read/write/delete-права, защищённый файл и отсутствие токена в экспорте и browser storage.",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "integrations-next",
+      "status": "check",
+      "source": "",
+      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
     }
   ],
   "sources": [
