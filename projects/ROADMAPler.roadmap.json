@@ -112,7 +112,7 @@
     {
       "id": "integrations-next",
       "title": "Интеграции",
-      "note": "Патч подготовлен локально; требуется SQL-обновление и публикация",
+      "note": "27.10.2026 · integrations-2026-10-27 · SQL применён; внешняя приёмка с токеном ожидается",
       "defaultStatus": "check",
       "locked": false
     }
@@ -699,7 +699,7 @@
       "release": "integrations-next",
       "status": "check",
       "source": "",
-      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
+      "comment": "Патч integrations-2026-10-27. Локальные PostgreSQL, браузер и CLI проверены; владелец применил SQL, на живом сервере подтверждены RPC, CORS и отказ без токена. Полный внешний сценарий ожидает токен тестового проекта."
     },
     {
       "id": "integration-api",
@@ -710,7 +710,7 @@
       "release": "integrations-next",
       "status": "check",
       "source": "",
-      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
+      "comment": "Патч integrations-2026-10-27. Локальные PostgreSQL, браузер и CLI проверены; владелец применил SQL, на живом сервере подтверждены RPC, CORS и отказ без токена. Полный внешний сценарий ожидает токен тестового проекта."
     },
     {
       "id": "integration-cli",
@@ -721,7 +721,7 @@
       "release": "integrations-next",
       "status": "check",
       "source": "",
-      "comment": "Локальные PostgreSQL, браузер и CLI проверены. Живая миграция и публикация ожидаются. docs/INTEGRATIONS.md"
+      "comment": "Патч integrations-2026-10-27. Локальные PostgreSQL, браузер и CLI проверены; владелец применил SQL, на живом сервере подтверждены RPC, CORS и отказ без токена. Полный внешний сценарий ожидает токен тестового проекта."
     }
   ],
   "sources": [
