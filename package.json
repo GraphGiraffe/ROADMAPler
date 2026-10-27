@@ -1,6 +1,7 @@
 {
   "name": "roadmapler",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Автономный планировщик проектов, релизов и задач",
   "scripts": {
