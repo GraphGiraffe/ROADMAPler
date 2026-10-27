@@ -2,6 +2,10 @@
   const byId = id => document.getElementById(id);
   if (!isSecureContext || !['http:', 'https:'].includes(location.protocol) || !('serviceWorker' in navigator)) return;
   let prompt = null, registration = null, applying = false, timer, lastCheck = 0, announcedUpdate = false;
+  let toastTimer;
+  const closeToast = () => { clearTimeout(toastTimer); byId('pwaToast').hidden = true; byId('pwaToastMessage').textContent = ''; };
+  const toast = text => { closeToast(); byId('pwaToastMessage').textContent = text; byId('pwaToast').hidden = false; toastTimer = setTimeout(closeToast, 5000); };
+  byId('pwaToastClose').onclick = closeToast;
   const mode = matchMedia('(display-mode: standalone)');
   const installed = () => mode.matches || navigator.standalone === true;
   const message = text => { byId('pwaPanel').hidden = false; byId('pwaMessage').textContent = text; };
@@ -21,6 +25,7 @@
   };
   const refreshWaiting = () => {
     if (registration?.waiting && navigator.serviceWorker.controller) {
+      closeToast();
       announcedUpdate = true;
       byId('applyUpdate').hidden = false;
       message('Доступно обновление. Примените его, когда закончите редактирование. Проекты и история отмены сохранятся.');
@@ -44,7 +49,10 @@
     try {
       await registration.update();
       if (registration.waiting) refreshWaiting();
-      else if (manual) message(registration.installing ? 'Обновление загружается…' : 'У вас актуальная версия приложения.');
+      else if (manual) {
+        if (registration.installing) message('Обновление загружается…');
+        else { byId('pwaPanel').hidden = true; toast('У вас актуальная версия приложения.'); }
+      }
     } catch { if (manual) message('Не удалось проверить обновления. Проверьте подключение к сети. Текущая версия доступна офлайн.'); }
     finally { byId('checkUpdate').disabled = false; }
   };
