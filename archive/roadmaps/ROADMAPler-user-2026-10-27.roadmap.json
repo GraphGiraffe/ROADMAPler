@@ -1,0 +1,676 @@
+{
+  "schema": 2,
+  "format": "roadmap-project",
+  "formatVersion": 2,
+  "project": {
+    "id": "project-3a3d9073-0055-4e25-979a-4289006cc792",
+    "name": "ROADMAPler",
+    "description": "История семи подтверждённых публикаций GitHub Pages и вошедших в них патчей по 27.10.2026 включительно. В репозитории нет номерных тегов версий: выпуски обозначены темой и SHA main. Промежуточные патчи отмечены в карточках; технические слияния веток не считаются выпусками. Все карточки этой исторической карты выполнены; будущие планы сюда не включены.",
+    "updatedAt": "2026-10-27T06:58:22.778Z"
+  },
+  "tracks": [
+    {
+      "id": "product",
+      "title": "Проекты",
+      "subtitle": ""
+    },
+    {
+      "id": "board",
+      "title": "Доска и карточки",
+      "subtitle": ""
+    },
+    {
+      "id": "data",
+      "title": "Данные",
+      "subtitle": ""
+    },
+    {
+      "id": "pwa",
+      "title": "PWA",
+      "subtitle": ""
+    },
+    {
+      "id": "delivery",
+      "title": "Разработка и выпуск",
+      "subtitle": ""
+    },
+    {
+      "id": "legal",
+      "title": "Лицензии и авторство",
+      "subtitle": ""
+    },
+    {
+      "id": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "title": "Облако",
+      "subtitle": "Механики создания аккаунтов и синхронизации"
+    }
+  ],
+  "releases": [
+    {
+      "id": "r-ee833e8",
+      "title": "Основа · ee833e8",
+      "note": "27.10.2026 10:22 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-6542e12",
+      "title": "PWA и проекты · 6542e12",
+      "note": "27.10.2026 10:51 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-de9fcd4",
+      "title": "Диапазоны и иконка · de9fcd4",
+      "note": "27.10.2026 11:21 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-41a43b0",
+      "title": "Лицензии · 41a43b0",
+      "note": "27.10.2026 12:29 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-cb42e79",
+      "title": "Имя ROADMAPler · cb42e79",
+      "note": "27.10.2026 12:36 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-783e48c",
+      "title": "PWA ID · 783e48c",
+      "note": "27.10.2026 13:08 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "r-d0e3777",
+      "title": "Компактная доска · d0e3777",
+      "note": "27.10.2026 13:29 +07 · опубликовано",
+      "defaultStatus": "done",
+      "locked": false
+    },
+    {
+      "id": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "title": "Синхронизация",
+      "note": "",
+      "locked": false,
+      "defaultStatus": "work"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "history-01",
+      "track": "product",
+      "release": "r-ee833e8",
+      "title": "Отдельное приложение для любых проектов",
+      "description": "Создан самостоятельный ROADMAPler без зависимости от приложения PlayRoom. Прототипы и данные PlayRoom сохранены отдельно от публикуемой оболочки.",
+      "status": "done",
+      "accept": "Новая оболочка открывает пустой проект; чужие проекты не встроены в сайт.",
+      "source": "src-ee833e8",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40443803611"
+    },
+    {
+      "id": "history-02",
+      "track": "board",
+      "release": "r-ee833e8",
+      "title": "Исходная доска релизов и треков",
+      "description": "Сохранён автономный HTML-прототип: колонки релизов, строки треков, backlog, карточки, статусы и перенос карточек.",
+      "status": "done",
+      "accept": "Исходные варианты доступны в archive/prototypes/, рабочая оболочка — в public/.",
+      "source": "src-ee833e8",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40443803611"
+    },
+    {
+      "id": "history-03",
+      "track": "data",
+      "release": "r-ee833e8",
+      "title": "Переносимый JSON и автономный HTML",
+      "description": "Подготовлен версионированный формат roadmap-project и хранение примеров в projects/. Сохранение HTML переносит данные проекта вместе с интерфейсом.",
+      "status": "done",
+      "accept": "Формат версии 1 описан в docs/PROJECT-FORMAT.md; пользовательские данные отделены от сборки.",
+      "source": "src-ee833e8",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40443803611"
+    },
+    {
+      "id": "history-04",
+      "track": "delivery",
+      "release": "r-ee833e8",
+      "title": "Структура public → site",
+      "description": "Исходники помещены в public/, команды — в scripts/. npm start запускает локальный сервер; npm run build генерирует только публикуемый site/.",
+      "status": "done",
+      "accept": "projects/ и archive/ не копируются на сайт; site/ не коммитится.",
+      "source": "src-ee833e8",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40443803611"
+    },
+    {
+      "id": "history-05",
+      "track": "delivery",
+      "release": "r-ee833e8",
+      "title": "Первый выпуск GitHub Pages",
+      "description": "Создан репозиторий GraphGiraffe/ROADMAPler и ручной workflow Publish Pages для точного SHA стабильной ветки.",
+      "status": "done",
+      "accept": "Первая успешная публикация: ee833e8, 27.10.2026.",
+      "source": "src-ee833e8",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40443803611"
+    },
+    {
+      "id": "history-06",
+      "track": "pwa",
+      "release": "r-6542e12",
+      "title": "Установка и офлайн-запуск PWA",
+      "description": "Добавлены manifest, значки приложения, Service Worker и собственный пункт установки. Кешируется оболочка в scope приложения.",
+      "status": "done",
+      "accept": "PWA запускается автономно после загрузки оболочки; проекты не входят в кеш оболочки.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-07",
+      "track": "pwa",
+      "release": "r-6542e12",
+      "title": "Обновление по кнопке с сохранением сеанса",
+      "description": "Новая версия ожидает подтверждения. Перед применением сохраняются текущий проект, история отмены и настройки вида; незавершённое редактирование блокирует обновление.",
+      "status": "done",
+      "accept": "После обновления сеанс восстанавливается; активная работа не прерывается автоматическим переключением версии.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-08",
+      "track": "product",
+      "release": "r-6542e12",
+      "title": "Вкладки и настройки проектов",
+      "description": "Добавлены создание и переключение проектов вкладками. Нажатие на название открывает настройки имени и описания.",
+      "status": "done",
+      "accept": "Проекты имеют отдельные данные и историю текущего сеанса.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-09",
+      "track": "data",
+      "release": "r-6542e12",
+      "title": "Локальное сохранение проектов",
+      "description": "Библиотека проектов хранится атомарной версионированной записью localStorage. Перед записью проверяется конфликт с другой вкладкой.",
+      "status": "done",
+      "accept": "Перезагрузка сохраняет проекты; конфликт не перезаписывает чужие изменения.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-10",
+      "track": "board",
+      "release": "r-6542e12",
+      "title": "Компактная шапка в стиле PECSoteka",
+      "description": "Обновлены палитра, тема, шапка с иконкой карты и меню справа. Основная площадь отдана рабочей доске; лишние пояснения и легенда удалены.",
+      "status": "done",
+      "accept": "Управление доступно на мобильном экране; переключение темы находится в шапке.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-11",
+      "track": "board",
+      "release": "r-6542e12",
+      "title": "Редактирование сущностей внутри приложения",
+      "description": "Настройки карточек, релизов и треков открываются кнопками на сущностях и нажатием на названия. Добавлены собственные выпадающие меню и сообщения ошибок.",
+      "status": "done",
+      "accept": "Настройки не используют alert, confirm, prompt или нативные всплывающие списки.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-12",
+      "track": "board",
+      "release": "r-6542e12",
+      "title": "Создание и скрытие прямо в таблице",
+      "description": "Плейсхолдер с плюсом в ячейке создаёт карточку; плюсы в таблице добавляют релиз и трек. Небольшие кнопки скрывают и возвращают строки, колонки и backlog.",
+      "status": "done",
+      "accept": "Пользователь управляет доской без отдельной громоздкой панели настроек.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-13",
+      "track": "board",
+      "release": "r-6542e12",
+      "title": "Семь цветных статусов карточек",
+      "description": "Выполнено — зелёный, запланировано — жёлтый, идея — синий, проверка — оранжевый. Добавлены работа, блокировка и пауза. На фоне карточек размещены крупные минималистичные знаки.",
+      "status": "done",
+      "accept": "Собственное меню статусов показывает соответствующие иконки и цвета; легенда не нужна.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-14",
+      "track": "data",
+      "release": "r-6542e12",
+      "title": "Отмена, повтор и перенос данных",
+      "description": "Модель меняется через команды с отменой и повтором. Пользовательские строки выводятся безопасно; импорт проверяет формат до изменения проекта.",
+      "status": "done",
+      "accept": "Редактирование можно отменить и повторить; данные сохраняются в JSON и переносимом HTML.",
+      "source": "src-6542e12",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40446467810"
+    },
+    {
+      "id": "history-15",
+      "track": "board",
+      "release": "r-de9fcd4",
+      "title": "Подробная иконка доски-планировщика",
+      "description": "Абстрактный маршрут заменён блокнотом с релизами, треками и карточками в тех же местах, что на доске. Обновлены знак шапки, favicon и значки PWA.",
+      "status": "done",
+      "accept": "Старые принятые варианты сохранены в archive/branding/.",
+      "source": "src-d47562c",
+      "comment": "Промежуточный патч d47562c; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-16",
+      "track": "board",
+      "release": "r-de9fcd4",
+      "title": "Карточка на несколько релизов",
+      "description": "Карточка занимает непрерывный диапазон колонок одной сущностью. Правая граница растягивается указателем или клавиатурой; начало и конец выбираются в диалоге.",
+      "status": "done",
+      "accept": "Пересекающиеся диапазоны размещаются в разных строках без наложения.",
+      "source": "src-d3da65a",
+      "comment": "Промежуточный патч d3da65a; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-17",
+      "track": "board",
+      "release": "r-de9fcd4",
+      "title": "Статус по умолчанию для релиза и backlog",
+      "description": "Настройки колонки задают статус при создании и переносе карточки. Заголовок получает соответствующий фон и крупную иконку.",
+      "status": "done",
+      "accept": "Перенос применяет правило целевой колонки; отсутствие правила сохраняет статус.",
+      "source": "src-d3da65a",
+      "comment": "Промежуточный патч d3da65a; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-18",
+      "track": "data",
+      "release": "r-de9fcd4",
+      "title": "Формат проекта версии 2",
+      "description": "Добавлены releaseEnd, defaultStatus и backlogDefaultStatus. Импорт версии 1 остаётся совместимым, неизвестная версия отвергается до изменения данных.",
+      "status": "done",
+      "accept": "JSON и автономный HTML сохраняют диапазоны и правила колонок.",
+      "source": "src-d3da65a",
+      "comment": "Промежуточный патч d3da65a; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-19",
+      "track": "data",
+      "release": "r-de9fcd4",
+      "title": "Корректное изменение диапазонов",
+      "description": "Перенос сохраняет длину диапазона в доступных границах. Backlog снимает диапазон, удаление релиза сокращает его, отмена возвращает прежнее состояние.",
+      "status": "done",
+      "accept": "Положение, диапазон и статус восстанавливаются общей историей отмены.",
+      "source": "src-d3da65a",
+      "comment": "Промежуточный патч d3da65a; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-20",
+      "track": "delivery",
+      "release": "r-de9fcd4",
+      "title": "Проверка диапазонов и обновления",
+      "description": "Проверены мышь, клавиатура, эмулированное касание, экспорт и восстановление после PWA-обновления. Сохранены границы проверки и сценарии.",
+      "status": "done",
+      "accept": "Результаты записаны в docs/verification-release-spans.md; физический телефон не заявлен проверенным.",
+      "source": "src-de9fcd4",
+      "comment": "Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40449299580"
+    },
+    {
+      "id": "history-21",
+      "track": "legal",
+      "release": "r-41a43b0",
+      "title": "Исторический патч MIT",
+      "description": "В промежуточной ветке и PR №6 был опубликован MIT-текст. Позднее выбраны другие стандартные лицензии; ранее предоставленные MIT-разрешения не отозваны.",
+      "status": "done",
+      "accept": "Исторический текст сохранён в LICENSES/MIT-legacy.txt; ограничения описаны в docs/LICENSING.md. Это не отдельный Pages-выпуск.",
+      "source": "src-414464b",
+      "comment": "Промежуточный патч 414464b; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40455618090"
+    },
+    {
+      "id": "history-22",
+      "track": "legal",
+      "release": "r-41a43b0",
+      "title": "Стандартные некоммерческие лицензии",
+      "description": "Для кода выбран стандартный PolyForm Noncommercial 1.0.0, для оригинальной графики, документации и примеров — CC BY-NC-SA 4.0. Тексты лицензий не изменены.",
+      "status": "done",
+      "accept": "LICENSE определяет области действия; PolyForm не объявляется лицензией с обязательным открытием всех доработок.",
+      "source": "src-4129995",
+      "comment": "Промежуточный патч 4129995; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40455618090"
+    },
+    {
+      "id": "history-23",
+      "track": "legal",
+      "release": "r-41a43b0",
+      "title": "Авторство и будущие коммерческие права",
+      "description": "Добавлены NOTICE, обязательные уведомления и правила для внешних вкладов. Коммерческое перелицензирование чужого вклада требует соответствующих прав.",
+      "status": "done",
+      "accept": "Правила отражены в CONTRIBUTING.md и docs/LICENSING.md.",
+      "source": "src-4129995",
+      "comment": "Промежуточный патч 4129995; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40455618090"
+    },
+    {
+      "id": "history-24",
+      "track": "product",
+      "release": "r-41a43b0",
+      "title": "Историческое имя RADMAPler",
+      "description": "По исходному запросу приложение временно переименовано в RADMAPler. Опечатка исправлена отдельным следующим патчем.",
+      "status": "done",
+      "accept": "Промежуточное имя зафиксировано только как факт истории этого выпуска.",
+      "source": "src-4129995",
+      "comment": "Промежуточный патч 4129995; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40455618090"
+    },
+    {
+      "id": "history-25",
+      "track": "board",
+      "release": "r-41a43b0",
+      "title": "Диалог «О приложении»",
+      "description": "Добавлены название, авторство, ссылки на репозиторий и стандартные лицензии; уведомления сохраняются в автономном HTML.",
+      "status": "done",
+      "accept": "Информация доступна в меню приложения.",
+      "source": "src-4129995",
+      "comment": "Промежуточный патч 4129995; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40455618090"
+    },
+    {
+      "id": "history-26",
+      "track": "product",
+      "release": "r-cb42e79",
+      "title": "Исправление имени на ROADMAPler",
+      "description": "Исправлена опечатка RADMAPler: шапка, заголовок страницы, manifest, имя переносимого HTML и документация используют ROADMAPler.",
+      "status": "done",
+      "accept": "Название приложения и короткое имя PWA — ROADMAPler.",
+      "source": "src-9894e5d",
+      "comment": "Промежуточный патч 9894e5d; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40456266975"
+    },
+    {
+      "id": "history-27",
+      "track": "data",
+      "release": "r-cb42e79",
+      "title": "Сохранение совместимости после переименования",
+      "description": "Переименование не меняет адрес репозитория, формат переносимых проектов и существующие ключи пользовательского хранилища.",
+      "status": "done",
+      "accept": "Ранее сохранённые проекты доступны под правильным именем приложения.",
+      "source": "src-9894e5d",
+      "comment": "Промежуточный патч 9894e5d; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40456266975"
+    },
+    {
+      "id": "history-28",
+      "track": "pwa",
+      "release": "r-783e48c",
+      "title": "Раздельная установка PWA одного домена",
+      "description": "Manifest ID ROADMAPler изменён с ./ на /roadmapler, чтобы установка не конфликтовала с соседними PECSoteka и PlayRoom на graphgiraffe.github.io.",
+      "status": "done",
+      "accept": "start_url и scope остаются ./; у ROADMAPler самостоятельная установочная идентичность.",
+      "source": "src-169a031",
+      "comment": "Промежуточный патч 169a031; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40459334900"
+    },
+    {
+      "id": "history-29",
+      "track": "pwa",
+      "release": "r-783e48c",
+      "title": "Пояснения по переходу PWA ID",
+      "description": "Описано, что смена установочной идентичности может потребовать переустановки старой конфликтующей Linux-установки без удаления данных сайта. Массовая очистка Android-данных не предлагается.",
+      "status": "done",
+      "accept": "Границы миграции и ограничения описаны в docs/PWA-IDENTITY.md.",
+      "source": "src-169a031",
+      "comment": "Промежуточный патч 169a031; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40459334900"
+    },
+    {
+      "id": "history-30",
+      "track": "board",
+      "release": "r-d0e3777",
+      "title": "Компактная мобильная доска",
+      "description": "Уменьшены отступы шапки и панели, ширина колонки релиза с 224 до 128 CSS px, пустые строки примерно со 100 до 70 px. Две колонки видны на экране 390 px.",
+      "status": "done",
+      "accept": "Горизонтальная прокрутка ограничена рабочей доской; длинный контент может увеличивать высоту строки.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-31",
+      "track": "board",
+      "release": "r-d0e3777",
+      "title": "Компактные карточки и кнопки треков",
+      "description": "Карточки с диапазоном стали ниже, плейсхолдеры компактнее. Кнопки редактирования и скрытия трека перенесены в обычный поток, чтобы не перекрывать счётчик.",
+      "status": "done",
+      "accept": "Проверены ширины 320, 390 и 1280 CSS px без горизонтального выхода страницы.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-32",
+      "track": "product",
+      "release": "r-d0e3777",
+      "title": "Удаление проекта с подтверждением",
+      "description": "В настройки проекта добавлена кнопка удаления и отдельное подтверждение внутри приложения. Удаление последнего открывает пустой проект.",
+      "status": "done",
+      "accept": "Отмена подтверждения ничего не удаляет; результат сохраняется после перезагрузки.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-33",
+      "track": "product",
+      "release": "r-d0e3777",
+      "title": "Восстановление удалённого проекта",
+      "description": "После удаления появляется кнопка «Восстановить», возвращающая проект, карточки и историю сеанса, пока сообщение доступно.",
+      "status": "done",
+      "accept": "Сообщение с кнопкой не исчезает по обычному таймеру; это не долговременная резервная копия.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-34",
+      "track": "data",
+      "release": "r-d0e3777",
+      "title": "Импорт отдельным проектом",
+      "description": "Импорт JSON больше не заменяет безусловно активный проект. Новый файл по подтверждению создаёт отдельную вкладку.",
+      "status": "done",
+      "accept": "Отмена импорта сохраняет библиотеку; результат доступен после перезагрузки.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-35",
+      "track": "data",
+      "release": "r-d0e3777",
+      "title": "Обновление одноимённого проекта",
+      "description": "При совпадении названия можно подтвердить обновление из файла или создать отдельную копию. Несколько совпадений выбираются собственным меню.",
+      "status": "done",
+      "accept": "Обновление сохраняет ID существующего проекта, предыдущую версию для отмены и историю повторов.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "history-36",
+      "track": "delivery",
+      "release": "r-d0e3777",
+      "title": "Проверка управления проектами",
+      "description": "Проверены удаление последнего проекта, восстановление, отмена импорта, обновление, одноимённые копии, выбор цели, undo/redo, перезагрузка и отклонение неизвестной версии JSON.",
+      "status": "done",
+      "accept": "Результаты и ограничения сохранены в docs/verification-compact-projects.md.",
+      "source": "src-e4a0008",
+      "comment": "Промежуточный патч e4a0008; включён в этот выпуск. Публикация: https://github.com/GraphGiraffe/ROADMAPler/actions/runs/40461420938"
+    },
+    {
+      "id": "task-1793083812489-qztb5w",
+      "source": "",
+      "title": "Облачный режим",
+      "description": "Сделать возможность создавать пользователей с логином и паролем и сохранением проектов",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793083833447-j6kxc4",
+      "source": "",
+      "title": "Локальный режим",
+      "description": "Сделать возможность остаться в полностью локальном режиме",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793083882311-lrspo6",
+      "source": "",
+      "title": "Синхронизация",
+      "description": "Сделать синхронизацию для онлайн-аккаунтов и поддержки версий",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793083931936-jwlmkm",
+      "source": "",
+      "title": "Оффлайн работа",
+      "description": "Сделать возможность работать оффлайн (по своему желанию), но позже синхронизироваться с облаком",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793083957995-67jyja",
+      "source": "",
+      "title": "Одновременная работа",
+      "description": "Учесть одновременную работу с двух устройств",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793084023419-z4xxag",
+      "source": "",
+      "title": "Смена режимов аккаунта",
+      "description": "Жать возможность переходить из облачного режима в локальный и обратно",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793084094729-42sphp",
+      "source": "",
+      "title": "Работа проектов",
+      "description": "Сделать возможность выбирать в каком режиме работает проект - облачный или локальный",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793084228815-k9y951",
+      "source": "",
+      "title": "Оформление",
+      "description": "Сделать индикацию типов проектов и аккаунта, проблемах синхронизации (всегда включена для облачных аккаунтов, показыыать индикатор если нет сети и синхронизации не будет)",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    },
+    {
+      "id": "task-1793084296113-05w9oi",
+      "source": "",
+      "title": "Восстановление соединения",
+      "description": "При проблемах с соединением сделать поддержку синхронизации при возобновлении соединения",
+      "track": "track-15520c8b-5120-484f-b737-770a5d7c4f9c",
+      "release": "rel-f5859115-cc7a-4412-8307-c6d9eb496bc1",
+      "status": "work",
+      "accept": "",
+      "comment": ""
+    }
+  ],
+  "sources": [
+    {
+      "id": "src-ee833e8",
+      "title": "Основа — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/ee833e826719b80116b0720685b3d5eca6db25c2"
+    },
+    {
+      "id": "src-6542e12",
+      "title": "PWA и проекты — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/6542e12a0169aeee8a14d900fcc032192d881d09"
+    },
+    {
+      "id": "src-de9fcd4",
+      "title": "Диапазоны и иконка — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/de9fcd4f5c13053d67ad70d787a5e119f357efc4"
+    },
+    {
+      "id": "src-41a43b0",
+      "title": "Лицензии — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/41a43b008030720c1d80bff812b9e4f3b0bd9431"
+    },
+    {
+      "id": "src-cb42e79",
+      "title": "Имя ROADMAPler — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/cb42e797b05e67f5b93aec6de4ae70a126dbdfc2"
+    },
+    {
+      "id": "src-783e48c",
+      "title": "PWA ID — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/783e48c09042aa18ea56cdd2a9b28f4a664d345c"
+    },
+    {
+      "id": "src-d0e3777",
+      "title": "Компактная доска — коммит стабильного выпуска",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/d0e377717251fe38f840d85a5b997288341fe52a"
+    },
+    {
+      "id": "src-d47562c",
+      "title": "Патч d47562c",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/d47562c70afc9ed2da0634b29c3b507f21969334"
+    },
+    {
+      "id": "src-d3da65a",
+      "title": "Патч d3da65a",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/d3da65ae58596676e32882cc390f4d54fc205da8"
+    },
+    {
+      "id": "src-414464b",
+      "title": "Патч 414464b",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/414464b7de746c6d85d77c081fad20606bc80416"
+    },
+    {
+      "id": "src-4129995",
+      "title": "Патч 4129995",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/4129995fc9d58c5cbe53ff432799d738f0724b5f"
+    },
+    {
+      "id": "src-9894e5d",
+      "title": "Патч 9894e5d",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/9894e5df3809002ae0e44f1e5145a1e19d35b2b0"
+    },
+    {
+      "id": "src-169a031",
+      "title": "Патч 169a031",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/169a0311f2c385c3bf2aa97516c6f606eec9321e"
+    },
+    {
+      "id": "src-e4a0008",
+      "title": "Патч e4a0008",
+      "path": "https://github.com/GraphGiraffe/ROADMAPler/commit/e4a0008184fdd195346502010b3a791c6b0dbdd7"
+    }
+  ],
+  "backlogDefaultStatus": "idea"
+}

@@ -61,7 +61,9 @@ dialog a{color:var(--accent);text-underline-offset:3px}
  .board{--label:84px;--col:128px;--collapsed-col:32px;--add-col:36px;--card-lane:56px;--add-row:36px;--empty-row:70px}.head{min-height:62px;padding:5px 6px}.head:not(.corner){padding-right:6px;padding-bottom:31px}.head h2 .name-button{font-size:12px;min-height:22px}.head p{font-size:9px}.track-row>.track{padding:5px;gap:2px}.track>.name-button{font-size:11px}.track small{font-size:9px}.track-tools{gap:3px;padding-top:2px}.track-row>.card .card-open{min-height:48px;padding:5px 31px 5px 6px}.card-open strong{font-size:12px}.card-open small{font-size:9px;margin-top:2px}.board-scroll{border-radius:12px}
 }
 @media print{.column-tools,.track-tools{display:none}}
-</style></head><body><main><header class="topbar"><div class="brand"><svg class="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+
+.cloud-status{width:32px;height:32px;min-height:32px;padding:3px;border-radius:10px;font-size:17px;background:transparent}.cloud-status[data-state=error],.cloud-status[data-state=auth],.cloud-status[data-state=conflict],.cloud-status[data-state=offline]{color:#a34f23;border-color:#bb8058}.cloud-tab-mark{font-size:11px}.check-label{display:flex;flex-direction:row!important;justify-content:flex-start;align-items:center;gap:8px}.check-label input{width:auto;flex:none}#cloudAccount,#cloudModeDialog,#cloudConflict,#cloudHistory{width:min(560px,calc(100% - 20px))}#cloudAccount .actions,#cloudModeDialog .actions,#cloudConflict .actions{flex-wrap:wrap}#cloudVersions{display:flex;flex-direction:column;gap:6px}#cloudAccount form label{margin-bottom:10px}#cloudAccountState{font-size:12px;overflow-wrap:anywhere}#projectForm .actions{flex-wrap:wrap}@media(max-width:400px){.header-tools{gap:3px}.brand{font-size:19px}}
+</style><script defer src="./cloud/config.js" data-cloud></script><script defer src="./cloud/sync.js" data-cloud></script><script defer src="./cloud/ui.js" data-cloud></script></head><body><main><header class="topbar"><div class="brand"><svg class="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
 <rect width="512" height="512" rx="112" fill="#f3f0e7"/>
 <rect x="83" y="84" width="342" height="348" rx="30" fill="#356951"/>
 <rect x="408" y="133" width="28" height="48" rx="9" fill="#eb795c"/>
@@ -251,7 +253,7 @@ function draw(){
   board.append(row);
  }
  const addTrackCell=text('div','','track add-track'),addTrack=text('button','','add-board-button');addTrack.type='button';addTrack.innerHTML=toolIcon('plus');addTrack.title='Добавить трек';addTrack.setAttribute('aria-label',addTrack.title);addTrack.onclick=()=>openTrack();addTrackCell.append(addTrack);board.append(addTrackCell);const tail=text('div','','add-track-tail');tail.style.gridColumn='2 / -1';board.append(tail);
- $('counts').textContent=visible+' из '+state.tasks.length+' карточек';$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length;detail();document.querySelector('.sources').hidden=!state.sources.length;$('sourceList').replaceChildren();for(const source of state.sources){const li=document.createElement('li');li.append(text('strong',source.title+' — '),text('code',source.path));$('sourceList').append(li)}refreshSelects();
+ $('counts').textContent=visible+' из '+state.tasks.length+' карточек';$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length;detail();document.querySelector('.sources').hidden=!state.sources.length;$('sourceList').replaceChildren();for(const source of state.sources){const li=document.createElement('li');li.append(text('strong',source.title+' — '),text('code',source.path));$('sourceList').append(li)}refreshSelects();window.roadmapCloud?.paint();
 }
 
 let editingTask=null;
@@ -349,7 +351,7 @@ function commitImport(update){
 }
 $('aboutApp').onclick=()=>$('aboutDialog').showModal();$('aboutClose').onclick=()=>$('aboutDialog').close();
 $('print').onclick=()=>window.print();
-$('save').onclick=()=>{const html=document.documentElement.cloneNode(true);html.dataset.portable='true';html.querySelectorAll('.select-control').forEach(wrapper=>{const select=wrapper.querySelector('select');select.hidden=false;wrapper.replaceWith(select)});html.querySelectorAll('.select-menu').forEach(menu=>menu.remove());html.querySelectorAll('[data-pwa]').forEach(n=>n.remove());html.querySelector('.project-menu').removeAttribute('open');html.querySelector('#roadmapData').textContent=JSON.stringify(state).replace(/</g,'\\u003c');html.querySelector('#board').replaceChildren();for(const id of ['filter','sourceList'])html.querySelector('#'+id).replaceChildren();option(html.querySelector('#filter'),'all','Все треки');html.querySelector('#search').setAttribute('value','');html.querySelector('#showDone').setAttribute('checked','');html.querySelector('#showDoneReleases').toggleAttribute('checked',$('showDoneReleases').checked);html.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));html.querySelector('#statusMessage').textContent='Сохранённая расстановка загружена. Можно продолжить редактирование.';const blob=new Blob(['<!doctype html>\n'+html.outerHTML],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='roadmapler-project.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);$('statusMessage').textContent='HTML подготовлен к скачиванию: релизы, карточки и порядок сохранены.'};
+$('save').onclick=()=>{const html=document.documentElement.cloneNode(true);html.dataset.portable='true';html.querySelectorAll('.select-control').forEach(wrapper=>{const select=wrapper.querySelector('select');select.hidden=false;wrapper.replaceWith(select)});html.querySelectorAll('.select-menu').forEach(menu=>menu.remove());html.querySelectorAll('[data-pwa],[data-cloud]').forEach(n=>n.remove());html.querySelector('.project-menu').removeAttribute('open');html.querySelector('#roadmapData').textContent=JSON.stringify(state).replace(/</g,'\\u003c');html.querySelector('#board').replaceChildren();for(const id of ['filter','sourceList'])html.querySelector('#'+id).replaceChildren();option(html.querySelector('#filter'),'all','Все треки');html.querySelector('#search').setAttribute('value','');html.querySelector('#showDone').setAttribute('checked','');html.querySelector('#showDoneReleases').toggleAttribute('checked',$('showDoneReleases').checked);html.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));html.querySelector('#statusMessage').textContent='Сохранённая расстановка загружена. Можно продолжить редактирование.';const blob=new Blob(['<!doctype html>\n'+html.outerHTML],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='roadmapler-project.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);$('statusMessage').textContent='HTML подготовлен к скачиванию: релизы, карточки и порядок сохранены.'};
 
 
 
@@ -404,13 +406,14 @@ $('showDoneReleases').onchange=()=>{try{if(!portable)localStorage.setItem(comple
 const vaultKey='roadmapler-projects:'+new URL('.',location.href).pathname;
 const template=JSON.parse($('roadmapData').textContent);
 let vault={version:1,active:'initial',projects:[{id:'initial',data:clone(state)}]},vaultRaw=null,vaultBlocked=false;
-const projectSessions=new Map();
+const projectSessions=new Map();let cloudWriting=false;
 try{if(!portable){vaultRaw=localStorage.getItem(vaultKey);if(vaultRaw){const parsed=JSON.parse(vaultRaw);if(parsed.version!==1||!Array.isArray(parsed.projects)||!parsed.projects.length||!parsed.projects.some(p=>p.id===parsed.active)||new Set(parsed.projects.map(p=>p.id)).size!==parsed.projects.length)throw Error('Неподдерживаемое хранилище проектов');for(const p of parsed.projects)validateProject(p.data);vault=parsed;state=clone(vault.projects.find(p=>p.id===vault.active).data);selected=state.tasks[0]?.id;$('statusMessage').textContent=''}}}
 catch(error){vaultBlocked=true;$('statusMessage').textContent='Хранилище не изменено: '+error.message+'. Экспортируйте проект перед продолжением.'}
 function writeVault(next){
+ if(!cloudWriting&&window.roadmapCloud)next=window.roadmapCloud.beforeWrite(vault,next);
  if(vaultBlocked)throw Error('Локальное хранилище недоступно или имеет неподдерживаемый формат.');
  if(!portable){if(localStorage.getItem(vaultKey)!==vaultRaw)throw Error('Проекты изменены в другой вкладке. Экспортируйте текущую работу и откройте приложение заново.');const raw=JSON.stringify(next);localStorage.setItem(vaultKey,raw);vaultRaw=raw;}
- vault=next;
+ vault=next;window.roadmapCloud?.onVaultChange();
 }
 function persistProject(nextActive=vault.active){writeVault({...vault,active:nextActive,projects:vault.projects.map(p=>p.id===vault.active?{...p,data:clone(state)}:p)})}
 function rememberProject(){projectSessions.set(vault.active,{undo:[...undoStack],redo:[...redoStack],selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked})}
@@ -427,17 +430,17 @@ function renderProjectTabs(){
 }
 $('projectTabs').onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const index=vault.projects.findIndex(p=>p.id===vault.active),last=vault.projects.length-1;const next=event.key==='Home'?0:event.key==='End'?last:(index+(event.key==='ArrowRight'?1:-1)+vault.projects.length)%vault.projects.length;switchProject(vault.projects[next].id);document.getElementById('project-tab-'+vault.active)?.focus()};
 let creatingProject=false;
-function openProjectName(create=false){creatingProject=create;$('deleteProject').hidden=create;$('projectError').textContent='';$('projectDialogTitle').textContent=create?'Новый проект':'Название проекта';$('projectTitle').value=create?'':state.project.name;$('projectNote').value=create?'':state.project.description||'';$('projectDialog').showModal();$('projectTitle').focus();$('projectTitle').select()}
+function openProjectName(create=false){creatingProject=create;$('deleteProject').hidden=create;$('projectError').textContent='';$('projectDialogTitle').textContent=create?'Новый проект':'Название проекта';$('projectTitle').value=create?'':state.project.name;$('projectNote').value=create?'':state.project.description||'';$('projectDialog').showModal();$('projectTitle').focus();$('projectTitle').select();window.roadmapCloud?.projectSettings(create)}
 $('newProject').onclick=()=>openProjectName(true);$('projectName').onclick=()=>openProjectName();$('projectCancel').onclick=()=>$('projectDialog').close();
 $('projectForm').onsubmit=event=>{event.preventDefault();const name=$('projectTitle').value.trim(),description=$('projectNote').value.trim();if(!name){showFieldError($('projectTitle'),'Введите название');return}
  if(!creatingProject){const saved=change(()=>{state.project.name=name;state.project.description=description},'Название проекта сохранено. Доступна отмена.');if(saved)$('projectDialog').close();return}
  try{rememberProject();persistProject();const id='project-'+crypto.randomUUID(),data=clone(template);data.project={id,name,description,updatedAt:new Date().toISOString()};writeVault({...vault,projects:[...vault.projects,{id,data}]});$('projectDialog').close();switchProject(id)}catch(error){$('statusMessage').textContent=error.message;$('projectError').textContent=error.message}
 };
-$('deleteProject').onclick=()=>{$('deleteProjectMessage').textContent='Удалить «'+state.project.name+'» и все его карточки из этого приложения?';$('deleteProjectError').textContent='';$('deleteProjectDialog').showModal();$('cancelDeleteProject').focus()};
+$('deleteProject').onclick=()=>{$('deleteProjectMessage').textContent='Удалить «'+state.project.name+'» и все его карточки'+(vault.projects.find(p=>p.id===vault.active)?.cloud?.enabled?' на устройстве и в облаке? Без сети удаление отправится при следующем подключении.':' из этого приложения?');$('deleteProjectError').textContent='';$('deleteProjectDialog').showModal();$('cancelDeleteProject').focus()};
 $('cancelDeleteProject').onclick=()=>$('deleteProjectDialog').close();
 $('confirmDeleteProject').onclick=()=>{
  try{
-  const removed={id:vault.active,data:clone(state)},projects=vault.projects.filter(p=>p.id!==vault.active);
+  const removed={...clone(vault.projects.find(p=>p.id===vault.active)),data:clone(state)},projects=vault.projects.filter(p=>p.id!==vault.active);
   if(!projects.length){const id='project-'+crypto.randomUUID(),data=clone(template);data.project={id,name:'Новый проект',description:'',updatedAt:new Date().toISOString()};data.tasks=[];data.releases=[];data.sources=[];projects.push({id,data})}
   rememberProject();writeVault({...vault,active:projects[0].id,projects});$('deleteProjectDialog').close();$('projectDialog').close();activateProject();
   $('statusMessage').textContent='Проект удалён. ';const undo=text('button','Восстановить');undo.type='button';undo.onclick=()=>{try{rememberProject();persistProject();writeVault({...vault,active:removed.id,projects:[...vault.projects,removed]});activateProject();$('statusMessage').textContent='Проект восстановлен.'}catch(error){$('statusMessage').textContent=error.message}};$('statusMessage').append(undo);
@@ -449,13 +452,14 @@ window.addEventListener('storage',event=>{if(event.key===vaultKey&&event.newValu
 // This checkpoint belongs only to an explicitly requested PWA update in this tab.
 const updateKey='roadmap-update:'+new URL('.',location.href).pathname;
 window.roadmapUpdate={
-  cancel(){sessionStorage.removeItem(updateKey)},
+  cancel(){sessionStorage.removeItem(updateKey);window.roadmapCloud?.resume?.()},
   prepare(){
-    closeSelectMenu();if(document.querySelector('dialog[open]')||importPending||resizingCard||document.querySelector('.cell.over'))throw Error('Завершите редактирование или перенос, затем повторите обновление.');
-    rememberProject();persistProject();
+    closeSelectMenu();if(window.roadmapCloud?.isBusy?.())throw Error('Дождитесь завершения синхронизации.');if(document.querySelector('dialog[open]')||importPending||resizingCard||document.querySelector('.cell.over'))throw Error('Завершите редактирование или перенос, затем повторите обновление.');
+    window.roadmapCloud?.pauseForUpdate?.();try{rememberProject();persistProject();
     const checkpoint=JSON.stringify({version:1,vaultRaw,sessions:[...projectSessions],state,undo:undoStack,redo:redoStack,selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked,showDoneReleases:$('showDoneReleases').checked});
     sessionStorage.setItem(updateKey,checkpoint);
     if(sessionStorage.getItem(updateKey)!==checkpoint)throw Error('Не удалось сохранить рабочее состояние. Сначала экспортируйте проект.');
+    }catch(error){window.roadmapCloud?.resume?.();throw error}
   }
 };
 if(location.protocol==='https:'||location.protocol==='http:'){
@@ -483,5 +487,22 @@ document.querySelector('.menu-panel').addEventListener('click',event=>{if(event.
 document.addEventListener('click',event=>{if(!event.target.closest('.project-menu'))document.querySelector('.project-menu').open=false});
 
 $('newTask').innerHTML=toolIcon('plus');$('newProject').innerHTML=toolIcon('plus');$('undo').innerHTML=toolIcon('undo');$('redo').innerHTML=toolIcon('redo');document.querySelector('.project-menu summary').innerHTML=toolIcon('more');
+// The optional cloud module receives snapshots, never direct mutable state.
+window.roadmapApp={
+ portable,validate:validateProject,refreshSelects,
+ getVault:()=>clone(vault),
+ canApply:()=>!document.querySelector('dialog[open]')&&!importPending&&!resizingCard&&!document.activeElement?.matches('input,textarea,[contenteditable=true]'),
+ emptyProject(){const id='project-'+crypto.randomUUID(),data=clone(template);data.project={id,name:'Новый проект',description:'',updatedAt:new Date().toISOString()};data.releases=[];data.tasks=[];data.sources=[];return {id,data}},
+ saveVault(next,history=false){
+  const previous=vault,previousActive=vault.active;rememberProject();
+  const changed=history?previous.projects.filter(old=>{const updated=next.projects.find(p=>p.id===old.id);return updated&&!window.RoadmapSync.equal(updated.data,old.data)}):[];
+  cloudWriting=true;try{writeVault(next)}finally{cloudWriting=false}
+  for(const old of changed){const saved=projectSessions.get(old.id)||{undo:[],redo:[]};projectSessions.set(old.id,{...saved,undo:[...(saved.undo||[]),JSON.stringify(old.data)],redo:[]})}
+  const old=previous.projects.find(p=>p.id===previousActive),current=vault.projects.find(p=>p.id===vault.active);
+  if(previousActive!==vault.active||JSON.stringify(old?.data)!==JSON.stringify(current?.data))activateProject();else renderProjectTabs();
+  window.roadmapCloud?.paint();
+ }
+};
+
 draw();
 </script></main></body></html>

@@ -5,6 +5,16 @@ import { createHash } from 'node:crypto';
 const source = new URL('../public/', import.meta.url);
 const output = new URL('../site/', import.meta.url);
 
+// Reject accidentally pasted privileged credentials before publishing the public config.
+const configSource = await readFile(new URL('cloud/config.js', source), 'utf8');
+const config = JSON.parse(configSource.match(/window\.ROADMAP_CLOUD\s*=\s*(\{[^;]*\})\s*;/)?.[1] || '{}');
+if (!!config.supabaseUrl !== !!config.supabaseKey) throw Error('Set both public Supabase URL and key.');
+if (config.supabaseUrl && new URL(config.supabaseUrl).protocol !== 'https:') throw Error('Supabase URL must use HTTPS.');
+if (config.supabaseKey) {
+  let anon = false;
+  try { anon = JSON.parse(Buffer.from(config.supabaseKey.split('.')[1], 'base64url').toString()).role === 'anon'; } catch {}
+  if (!config.supabaseKey.startsWith('sb_publishable_') && !anon) throw Error('Use a public Supabase publishable/anon key, never a secret/service_role key.');
+}
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true });
