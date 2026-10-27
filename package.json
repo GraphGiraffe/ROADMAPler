@@ -1,6 +1,7 @@
 {
-  "name": "roadmapler",
+  "name": "radmapler",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "description": "Автономный планировщик проектов, релизов и задач",
   "scripts": {
