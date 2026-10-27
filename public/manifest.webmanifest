@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "RADMAPler — планировщик проектов",
-  "short_name": "RADMAPler",
+  "name": "ROADMAPler — планировщик проектов",
+  "short_name": "ROADMAPler",
   "description": "Проекты, релизы и задачи на одной схеме",
   "lang": "ru",
   "start_url": "./",
