@@ -22,12 +22,16 @@
  const accountButton=node('button','Аккаунт');accountButton.type='button';accountButton.dataset.cloud='';document.querySelector('.menu-panel').prepend(accountButton);
  const status=node('button','','cloud-status');status.type='button';status.id='cloudStatus';status.dataset.cloud='';document.querySelector('.header-tools').prepend(status);
  const projectButton=node('button','Синхронизация…');projectButton.type='button';projectButton.id='projectSync';projectButton.dataset.cloud='';$('projectForm').querySelector('.actions').prepend(projectButton);
+ function cloudIcon(state='synced'){
+  const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','1.7');icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');icon.setAttribute('aria-hidden','true');
+  icon.innerHTML=state==='syncing'?'<path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3a7 7 0 0 0 11.6-1"/>':'<path d="M6 19a4 4 0 0 1-.5-8 6.5 6.5 0 0 1 12.4-2A5 5 0 0 1 18 19Z"/>'+(state==='synced'||state==='local'?'':'<path d="M12 10v4m0 3v.1"/>');return icon;
+ }
  function settings(){return window.ROADMAP_CLOUD||{}}
  function setStatus(text,state){message=text;phase=state;paint()}
  function paint(){
-  status.textContent=phase==='local'?'⌂':phase==='synced'?'☁':phase==='syncing'?'↻':phase==='conflict'?'!':'☁!';status.dataset.state=phase;status.title=message;status.setAttribute('aria-label',message);status.hidden=phase==='local';$('cloudAccountState').textContent=(config?(config.provider==='github'?'GitHub · ':'ROADMAPler · ')+(config.label||'')+' · ':'')+message;
+  status.replaceChildren(cloudIcon(phase));status.dataset.state=phase;status.title=message;status.setAttribute('aria-label',message);status.hidden=phase==='local';$('cloudAccountState').textContent=(config?(config.provider==='github'?'GitHub · ':'ROADMAPler · ')+(config.label||'')+' · ':'')+message;
   $('cloudResolve').hidden=!conflicts.size;$('cloudRetry').hidden=!client;$('cloudDisconnect').hidden=!client;
-  const vault=app.getVault();for(const p of vault.projects){const tab=$('project-tab-'+p.id);if(!tab)continue;tab.querySelector('[data-cloud]')?.remove();if(p.cloud?.enabled){const mark=node('span',' ☁','cloud-tab-mark');mark.dataset.cloud='';mark.setAttribute('aria-hidden','true');tab.append(mark);tab.title=p.data.project.name+' · облачный проект'+(p.cloud.owner!==owner()?' · подключите его аккаунт':'')}}
+  const vault=app.getVault();for(const p of vault.projects){const tab=$('project-tab-'+p.id);if(!tab)continue;tab.querySelector('[data-cloud]')?.remove();if(p.cloud?.enabled){const mark=node('span','','cloud-tab-mark');mark.append(cloudIcon());mark.dataset.cloud='';mark.setAttribute('aria-hidden','true');tab.append(mark);tab.title=p.data.project.name+' · облачный проект'+(p.cloud.owner!==owner()?' · подключите его аккаунт':'')}}
  }
  function storeSession(value){
   const saved={...value};delete saved.password;
