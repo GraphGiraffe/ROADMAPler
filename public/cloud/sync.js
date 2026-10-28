@@ -53,6 +53,10 @@
   class Supabase {
     constructor(config,onSession){this.config=config;this.url=config.url.replace(/\/$/,'');this.onSession=onSession;this.owner=config.user?'supabase:'+this.url+':'+config.user.id:''}
     async auth(path,body){return request(this.url+'/auth/v1/'+path,{method:'POST',headers:{apikey:this.config.key,'Content-Type':'application/json'},body:JSON.stringify(body)})}
+    async recover(email,redirect){return this.auth('recover?redirect_to='+encodeURIComponent(redirect),{email})}
+    async recoveryUser(token){return request(this.url+'/auth/v1/user',{headers:{apikey:this.config.key,Authorization:'Bearer '+token}})}
+    async updatePassword(token,password){return request(this.url+'/auth/v1/user',{method:'PUT',headers:{apikey:this.config.key,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({password})})}
+    async endRecovery(token){return request(this.url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:this.config.key,Authorization:'Bearer '+token}})}
     async login(email,password,signup=false){const result=await this.auth(signup?'signup':'token?grant_type=password',{email,password});if(!result.access_token)return null;this.session(result);return result.user}
     session(result){Object.assign(this.config,{token:result.access_token,refresh:result.refresh_token,user:result.user,expires:Date.now()+result.expires_in*1000});this.owner='supabase:'+this.url+':'+result.user.id;this.onSession?.(this.config)}
     async connect(){if(!this.config.token)throw Error('Войдите в аккаунт.');await this.refresh();const user=await request(this.url+'/auth/v1/user',{headers:{apikey:this.config.key,Authorization:'Bearer '+this.config.token}});this.config.user=user;this.owner='supabase:'+this.url+':'+user.id;return {name:user.email}}
