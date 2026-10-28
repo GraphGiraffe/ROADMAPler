@@ -73,7 +73,7 @@ dialog a{color:var(--accent);text-underline-offset:3px}
 dialog label{margin:8px 0;gap:5px}#taskDialog .dialog-heading{margin-bottom:8px}#taskDialog .editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:8px 0}#taskDialog .editor label{margin:0;min-width:0}
 #taskDialog,#trackDialog,#releaseDialog{padding:0;overflow:hidden}#taskDialog>form,#trackDialog>form,#releaseDialog>form{display:flex;flex-direction:column;max-height:calc(100dvh - 32px);min-height:0}.editor-heading,#taskDialog .editor-heading{flex:none;gap:10px;padding:12px 16px;margin:0;border-bottom:1px solid var(--line);background:var(--bg)}.editor-heading h2{min-width:0;font-size:20px;line-height:1.2;letter-spacing:-.4px}.dialog-toolbar{display:flex;gap:6px;flex:none}.dialog-toolbar>.icon-button{width:36px;height:36px;min-height:36px;padding:0}.dialog-content{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 20px 16px}.dialog-content>label:first-child{margin-top:4px}@media(max-width:360px){.editor-heading{padding:10px}.editor-heading h2{font-size:18px}.dialog-toolbar{gap:4px}.dialog-content{padding:8px 14px 14px}}
 .project-tab{display:inline-flex;align-items:center;gap:5px;flex-shrink:0}.project-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cloud-tab-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;width:14px;height:14px}.cloud-tab-mark svg{display:block;width:14px;height:14px}.cloud-status>svg{display:block;flex:none;width:20px;height:20px}
-</style><script src="./app/project-format.js" data-project-format></script><script defer src="./cloud/config.js" data-cloud></script><script defer src="./cloud/sync.js" data-cloud></script><script defer src="./cloud/integrations.js" data-cloud></script><script defer src="./cloud/ui.js" data-cloud></script></head><body><main><header class="topbar"><div class="brand"><svg class="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+</style><script src="./app/project-format.js" data-project-format></script><script src="./app/history.js" data-history></script><script defer src="./cloud/config.js" data-cloud></script><script defer src="./cloud/sync.js" data-cloud></script><script defer src="./cloud/integrations.js" data-cloud></script><script defer src="./cloud/ui.js" data-cloud></script></head><body><main><header class="topbar"><div class="brand"><svg class="brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
 <rect width="512" height="512" rx="112" fill="#f3f0e7"/>
 <rect x="83" y="84" width="342" height="348" rx="30" fill="#356951"/>
 <rect x="408" y="133" width="28" height="48" rx="9" fill="#eb795c"/>
@@ -165,10 +165,10 @@ function historyEntry(withOrder=false){return JSON.stringify(withOrder?{format:'
 function readHistory(raw){const entry=JSON.parse(raw);if(entry?.format!=='roadmap-command')return {data:validateProject(entry),projectOrder:null};if(entry.formatVersion!==1||!Array.isArray(entry.projectOrder)||entry.projectOrder.some(id=>typeof id!=='string')||new Set(entry.projectOrder).size!==entry.projectOrder.length)throw Error('Некорректная история порядка проектов.');return {data:validateProject(entry.data),projectOrder:entry.projectOrder}}
 function change(fn,message='Изменения сохранены в этом браузере.',projectOrder=null){
  const before=historyEntry(projectOrder!==null),previous=JSON.stringify(state);fn();if(previous===JSON.stringify(state)&&(projectOrder===null||JSON.stringify(projectOrder)===JSON.stringify(vault.projects.map(project=>project.id))))return true;
- try{persistProject(vault.active,projectOrder);undoStack.push(before);redoStack.length=0;draw();$('statusMessage').textContent=message;return true}
+ try{persistProject(vault.active,projectOrder);RoadmapHistory.record(undoStack,redoStack,before);draw();$('statusMessage').textContent=message;return true}
  catch(error){state=JSON.parse(previous);draw();$('statusMessage').textContent='Изменение не сохранено: '+error.message+' Можно экспортировать текущий проект.';return false}
 }
-function restore(from,to){if(!from.length)return;let before;try{const target=readHistory(from.at(-1));before=historyEntry(target.projectOrder!==null);state=target.data;persistProject(vault.active,target.projectOrder);from.pop();to.push(before);draw();$('statusMessage').textContent='Изменение сохранено. Доступны отмена и повтор.'}catch(error){if(before)state=readHistory(before).data;draw();$('statusMessage').textContent=error.message}}
+function restore(from,to){if(!from.length)return;let before;try{const target=readHistory(from.at(-1));before=historyEntry(target.projectOrder!==null);state=target.data;persistProject(vault.active,target.projectOrder);from.pop();to.push(before);RoadmapHistory.trim(undoStack,redoStack,to===redoStack?'redo':'undo');draw();$('statusMessage').textContent='Изменение сохранено. Доступны отмена и повтор.'}catch(error){if(before)state=readHistory(before).data;draw();$('statusMessage').textContent=error.message}}
 
 function taskReleases(task){
  if(task.release==='backlog')return ['backlog'];
@@ -398,13 +398,13 @@ function commitImport(update){
   rememberProject();const projects=vault.projects.map(p=>p.id===vault.active?{...p,data:clone(state)}:p),before=projects.find(p=>p.id===id);
   const next=before?projects.map(p=>p.id===id?{...p,data}:p):[...projects,{id,data}];
   writeVault({...vault,active:id,projects:next});
-  const previous=projectSessions.get(id);projectSessions.set(id,{undo:before?[...(previous?.undo||[]),JSON.stringify(before.data)]:[],redo:[]});
+  const previous=projectSessions.get(id),session={undo:[...(previous?.undo||[])],redo:[]};if(before)RoadmapHistory.record(session.undo,session.redo,JSON.stringify(before.data));else session.undo=[];projectSessions.set(id,session);
   $('importDialog').close();activateProject();$('statusMessage').textContent=update?'Проект обновлён из файла. Доступна отмена.':'Проект создан из файла.';
  }catch(error){$('importError').textContent=error.message}
 }
 $('aboutApp').onclick=()=>$('aboutDialog').showModal();$('aboutClose').onclick=()=>$('aboutDialog').close();
 $('print').onclick=()=>window.print();
-$('save').onclick=()=>{const html=document.documentElement.cloneNode(true);html.dataset.portable='true';const formatScript=html.querySelector('[data-project-format]');formatScript.removeAttribute('src');formatScript.textContent=RoadmapProjectFormat.portableSource;html.querySelectorAll('.select-control').forEach(wrapper=>{const select=wrapper.querySelector('select');select.hidden=false;wrapper.replaceWith(select)});html.querySelectorAll('.select-menu').forEach(menu=>menu.remove());html.querySelectorAll('[data-pwa],[data-cloud]').forEach(n=>n.remove());html.querySelector('.project-menu').removeAttribute('open');html.querySelector('#roadmapData').textContent=JSON.stringify(state).replace(/</g,'\\u003c');html.querySelector('#board').replaceChildren();for(const id of ['filter'])html.querySelector('#'+id).replaceChildren();option(html.querySelector('#filter'),'all','Все треки');html.querySelector('#search').setAttribute('value','');html.querySelector('#showDone').setAttribute('checked','');html.querySelector('#showDoneReleases').toggleAttribute('checked',$('showDoneReleases').checked);html.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));html.querySelector('#statusMessage').textContent='Сохранённая расстановка загружена. Можно продолжить редактирование.';const blob=new Blob(['<!doctype html>\n'+html.outerHTML],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='roadmapler-project.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);$('statusMessage').textContent='HTML подготовлен к скачиванию: релизы, карточки и порядок сохранены.'};
+$('save').onclick=()=>{const html=document.documentElement.cloneNode(true);html.dataset.portable='true';const formatScript=html.querySelector('[data-project-format]');formatScript.removeAttribute('src');formatScript.textContent=RoadmapProjectFormat.portableSource;const historyScript=html.querySelector('[data-history]');historyScript.removeAttribute('src');historyScript.textContent=RoadmapHistory.portableSource;html.querySelectorAll('.select-control').forEach(wrapper=>{const select=wrapper.querySelector('select');select.hidden=false;wrapper.replaceWith(select)});html.querySelectorAll('.select-menu').forEach(menu=>menu.remove());html.querySelectorAll('[data-pwa],[data-cloud]').forEach(n=>n.remove());html.querySelector('.project-menu').removeAttribute('open');html.querySelector('#roadmapData').textContent=JSON.stringify(state).replace(/</g,'\\u003c');html.querySelector('#board').replaceChildren();for(const id of ['filter'])html.querySelector('#'+id).replaceChildren();option(html.querySelector('#filter'),'all','Все треки');html.querySelector('#search').setAttribute('value','');html.querySelector('#showDone').setAttribute('checked','');html.querySelector('#showDoneReleases').toggleAttribute('checked',$('showDoneReleases').checked);html.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));html.querySelector('#statusMessage').textContent='Сохранённая расстановка загружена. Можно продолжить редактирование.';const blob=new Blob(['<!doctype html>\n'+html.outerHTML],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='roadmapler-project.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);$('statusMessage').textContent='HTML подготовлен к скачиванию: релизы, карточки и порядок сохранены.'};
 
 
 
@@ -493,7 +493,7 @@ function applyProjectView(saved){
 }
 function rememberProject(){saveProjectView();projectSessions.set(vault.active,{undo:[...undoStack],redo:[...redoStack],...currentProjectView()})}
 function activateProject(){
- state=clone(vault.projects.find(p=>p.id===vault.active).data);const saved=projectSessions.get(vault.active);undoStack.length=0;redoStack.length=0;if(saved){undoStack.push(...saved.undo);redoStack.push(...saved.redo)}applyProjectView(projectViews.get(vault.active)||saved);draw();$('statusMessage').textContent='';document.querySelector('[role=tab][aria-selected=true]')?.scrollIntoView({block:'nearest',inline:'nearest'});
+ state=clone(vault.projects.find(p=>p.id===vault.active).data);const saved=projectSessions.get(vault.active);undoStack.length=0;redoStack.length=0;if(saved){undoStack.push(...saved.undo);redoStack.push(...saved.redo);RoadmapHistory.trim(undoStack,redoStack)}applyProjectView(projectViews.get(vault.active)||saved);draw();$('statusMessage').textContent='';document.querySelector('[role=tab][aria-selected=true]')?.scrollIntoView({block:'nearest',inline:'nearest'});
 }
 // Normal startup and PWA use the same per-project preferences, outside project exports.
 if(projectViews.has(vault.active))applyProjectView(projectViews.get(vault.active));
@@ -534,7 +534,10 @@ window.roadmapUpdate={
   prepare(){
     closeSelectMenu();if(window.roadmapCloud?.isBusy?.())throw Error('Дождитесь завершения синхронизации.');if(document.querySelector('dialog[open]')||importPending||resizingCard||document.querySelector('.cell.over'))throw Error('Завершите редактирование или перенос, затем повторите обновление.');
     window.roadmapCloud?.pauseForUpdate?.();try{rememberProject();persistProject();
-    const checkpoint=JSON.stringify({version:1,vaultRaw,sessions:[...projectSessions],state,undo:undoStack,redo:redoStack,selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked,showDoneReleases:$('showDoneReleases').checked});
+    // One shared history budget for the checkpoint; active history has priority.
+    const undo=[...undoStack],redo=[...redoStack];let remaining=RoadmapHistory.maxBytes-RoadmapHistory.trim(undo,redo);
+    const sessions=[...projectSessions].map(([id,saved])=>{const session={...saved,undo:id===vault.active?[]:[...saved.undo],redo:id===vault.active?[]:[...saved.redo]};remaining-=RoadmapHistory.trim(session.undo,session.redo,'undo',remaining);return [id,session]});
+    const checkpoint=JSON.stringify({version:1,vaultRaw,sessions,state,undo,redo,selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked,showDoneReleases:$('showDoneReleases').checked});
     sessionStorage.setItem(updateKey,checkpoint);
     if(sessionStorage.getItem(updateKey)!==checkpoint)throw Error('Не удалось сохранить рабочее состояние. Сначала экспортируйте проект.');
     }catch(error){window.roadmapCloud?.resume?.();throw error}
@@ -549,9 +552,11 @@ if(location.protocol==='https:'||location.protocol==='http:'){
       if(snapshot.version!==1||!Array.isArray(snapshot.undo)||!Array.isArray(snapshot.redo))throw Error('Неподдерживаемый снимок обновления');
       validateProject(snapshot.state);
       for(const item of [...snapshot.undo,...snapshot.redo])readHistory(item);
-      for(const [id,session] of snapshot.sessions||[])projectSessions.set(id,session);
+      const sessions=new Map();
+      for(const [id,session] of snapshot.sessions||[]){if(!Array.isArray(session.undo)||!Array.isArray(session.redo))throw Error('Некорректная история проекта');for(const item of [...session.undo,...session.redo])readHistory(item);RoadmapHistory.trim(session.undo,session.redo);sessions.set(id,session)}
+      for(const [id,session] of sessions)projectSessions.set(id,session);
       state=snapshot.state;selected=snapshot.selected;showBacklog=snapshot.showBacklog;hiddenTracks.clear();hiddenReleases.clear();for(const id of snapshot.hiddenTracks||[])hiddenTracks.add(id);for(const id of snapshot.hiddenReleases||[])hiddenReleases.add(id);
-      undoStack.length=0;redoStack.length=0;undoStack.push(...snapshot.undo);redoStack.push(...snapshot.redo);
+      undoStack.length=0;redoStack.length=0;RoadmapHistory.trim(snapshot.undo,snapshot.redo);undoStack.push(...snapshot.undo);redoStack.push(...snapshot.redo);
       $('search').value=snapshot.search||'';$('showDone').checked=snapshot.showDone;$('showDoneReleases').checked=snapshot.showDoneReleases??true;
       draw();$('filter').value=snapshot.filter;draw();
       sessionStorage.removeItem(updateKey);
@@ -576,7 +581,7 @@ window.roadmapApp={
   const previous=vault,previousActive=vault.active;rememberProject();
   const changed=history?previous.projects.filter(old=>{const updated=next.projects.find(p=>p.id===old.id);return updated&&!window.RoadmapSync.equal(updated.data,old.data)}):[];
   cloudWriting=true;try{writeVault(next)}finally{cloudWriting=false}
-  for(const old of changed){const saved=projectSessions.get(old.id)||{undo:[],redo:[]};projectSessions.set(old.id,{...saved,undo:[...(saved.undo||[]),JSON.stringify(old.data)],redo:[]})}
+  for(const old of changed){const saved=projectSessions.get(old.id)||{undo:[],redo:[]};const session={...saved,undo:[...(saved.undo||[])],redo:[]};RoadmapHistory.record(session.undo,session.redo,JSON.stringify(old.data));projectSessions.set(old.id,session)}
   const old=previous.projects.find(p=>p.id===previousActive),current=vault.projects.find(p=>p.id===vault.active);
   if(previousActive!==vault.active||JSON.stringify(old?.data)!==JSON.stringify(current?.data))activateProject();else renderProjectTabs();
   window.roadmapCloud?.paint();
