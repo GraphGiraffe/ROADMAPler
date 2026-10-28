@@ -325,3 +325,39 @@ test('card opens directly in editor from its title and edit icon', async () => {
   assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Saved description');
   assert.equal(await page.locator('#cardView').count(), 0);
 });
+
+test('Integrations offers the same checked plugin ZIP as the discovery API without login', async () => {
+  const { context, page } = await device();
+  const data = await (await context.request.get(origin + 'api/agent-plugin/manifest.json')).json();
+  assert.equal(data.name, 'roadmapler'); assert.equal(data.credentialsIncluded, false);
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Интеграции', exact: true }).click();
+  await page.locator('#agentPluginDownload').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#agentPluginState').textContent(), new RegExp(data.version.replaceAll('.', '\\.')));
+  const href = await page.locator('#agentPluginDownload').getAttribute('href');
+  assert.equal(href, new URL(data.archive.url, origin + 'api/agent-plugin/manifest.json').href);
+  assert.equal(await page.locator('#integrationForm').isVisible(), false);
+  const pending = page.waitForEvent('download');
+  await page.locator('#agentPluginDownload').click();
+  const download = await pending;
+  const stream = await download.createReadStream(), chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const archive = Buffer.concat(chunks);
+  assert.equal(archive.length, data.archive.bytes);
+  const { createHash } = await import('node:crypto');
+  assert.equal(createHash('sha256').update(archive).digest('hex'), data.archive.sha256);
+  assert.match((await context.request.get(origin + 'api/agent-plugin/README.txt')).headers()['content-type'] || '', /./);
+});
+
+test('plugin download failure is shown in app and can be retried', async () => {
+  const { page } = await device();
+  await page.route('**/api/agent-plugin/manifest.json', route => route.fulfill({ status: 503, body: '{}' }));
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Интеграции', exact: true }).click();
+  await page.locator('#agentPluginRetry').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#agentPluginDownload').isVisible(), false);
+  assert.match(await page.locator('#agentPluginState').textContent(), /Не удалось/);
+  await page.unroute('**/api/agent-plugin/manifest.json');
+  await page.locator('#agentPluginRetry').click();
+  await page.locator('#agentPluginDownload').waitFor({ state: 'visible' });
+});
