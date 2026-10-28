@@ -6,7 +6,15 @@
   "description": "Автономный планировщик проектов, релизов и задач",
   "scripts": {
     "start": "python3 -m http.server 4173 --bind 127.0.0.1 --directory public",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/project-format.test.mjs",
+    "test:browser": "npm run build && node --test tests/browser/*.test.mjs",
+    "test:sql": "python3 tests/sql/project_format.py"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
 }
