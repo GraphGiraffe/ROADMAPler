@@ -175,7 +175,7 @@ test('PWA caches the shared contract and reloads offline', async () => {
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat && window.RoadmapHistory);
+  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat && window.RoadmapHistory && window.RoadmapRecovery);
   assert.equal(await page.evaluate(() => window.RoadmapProjectFormat.validateProject(window.roadmapApp.getVault().projects[0].data).format), 'roadmap-project');
   await context.setOffline(false);
 });
@@ -360,4 +360,135 @@ test('plugin download failure is shown in app and can be retried', async () => {
   await page.unroute('**/api/agent-plugin/manifest.json');
   await page.locator('#agentPluginRetry').click();
   await page.locator('#agentPluginDownload').waitFor({ state: 'visible' });
+});
+
+async function recoveryDevice(fragment = '', options = {}) {
+  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  contexts.add(context);
+  const calls = [], state = { recoverStatus: 200, verifyStatus: 200, updateStatus: 200, ...options };
+  const token = 'recovery-access-test', refresh = 'recovery-refresh-test';
+  if (state.savedSession) await context.addInitScript(({ origin, session, data }) => {
+    localStorage.setItem('roadmapler-cloud:/ROADMAPler/', JSON.stringify(session));
+    localStorage.setItem('roadmapler-projects:/ROADMAPler/', JSON.stringify({ version: 1, active: 'saved', projects: [{ id: 'saved', data }] }));
+  }, { origin, session: state.savedSession, data: fixtures.find(f => f.name === 'unknown-fields-preserved').data });
+  let page;
+  await context.route('https://klsxfhettffjbnmuxivg.supabase.co/**', async route => {
+    const request = route.request(), url = new URL(request.url());
+    calls.push({ path: url.pathname, query: url.search, method: request.method(), body: request.postDataJSON(), authorization: request.headers().authorization, pageURL: page.url() });
+    if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: [] });
+    if (url.pathname === '/auth/v1/recover') return route.fulfill({ status: state.recoverStatus, json: state.recoverStatus === 200 ? {} : { msg: 'rate limit' } });
+    if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
+    if (url.pathname === '/auth/v1/user') {
+      if (request.method() === 'GET' && state.verifyGate) await state.verifyGate;
+      const status = request.method() === 'PUT' ? state.updateStatus : state.verifyStatus;
+      return route.fulfill({ status, json: status === 200 ? { id: 'recovered-user', email: 'recovered@example.org' } : { msg: 'Rejected ' + token } });
+    }
+    return route.abort();
+  });
+  page = await context.newPage();
+  await page.goto(origin + fragment);
+  await page.waitForFunction(() => window.roadmapApp && window.RoadmapRecovery);
+  return { context, page, calls, state, token, refresh };
+}
+async function openRecoveryRequest(page) {
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
+  await page.locator('#cloudForgotPassword').click();
+}
+const recoveryFragment = '?recovery=1#type=recovery&access_token=recovery-access-test&refresh_token=recovery-refresh-test';
+
+test('recovery email validates locally and sends a scoped redirect without exposing account existence', async () => {
+  const { page, calls } = await recoveryDevice();
+  const before = await vault(page);
+  await openRecoveryRequest(page);
+  await page.locator('#recoveryEmail').fill('invalid'); await page.locator('#recoverySend').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /корректную/);
+  assert.equal(calls.length, 0);
+  await page.locator('#recoveryEmail').fill('user@example.org'); await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryRequest').hidden);
+  assert.match(await page.locator('#recoveryState').textContent(), /Если аккаунт/);
+  assert.deepEqual(calls[0].body, { email: 'user@example.org' });
+  assert.equal(new URLSearchParams(calls[0].query).get('redirect_to'), origin + '?recovery=1');
+  assert.equal(calls[0].method, 'POST'); assert.equal(calls[0].authorization, undefined);
+  assert.deepEqual(await vault(page), before);
+});
+
+test('recovery email reports rate/network errors in app and supports explicit retry', async () => {
+  const { page, calls, state } = await recoveryDevice('', { recoverStatus: 429 });
+  await openRecoveryRequest(page); await page.locator('#recoveryEmail').fill('user@example.org');
+  await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryError').textContent.includes('Не удалось'));
+  assert.equal(calls.length, 1); assert.equal(await page.locator('#recoverySend').isEnabled(), true);
+  state.recoverStatus = 200; await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryRequest').hidden);
+  assert.equal(calls.length, 2);
+});
+
+test('recovery callback clears URL secrets and changes password without replacing the existing account or projects', async () => {
+  const savedSession = { provider: 'supabase', url: 'https://klsxfhettffjbnmuxivg.supabase.co', key: 'sb_publishable_saved', token: 'existing-access', refresh: 'existing-refresh', user: { id: 'existing-user', email: 'existing@example.org' }, expires: Date.now() + 3600000, remember: true };
+  const { page, calls, token, refresh } = await recoveryDevice(recoveryFragment, { savedSession });
+  await page.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+  assert.equal(page.url(), origin);
+  assert.match(await page.locator('#recoveryState').textContent(), /recovered@example.org/);
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  assert.ok(calls.filter(c => c.path === '/auth/v1/user').every(c => !c.pageURL.includes(token) && !c.pageURL.includes(refresh)));
+  await page.locator('#recoveryPassword').fill('New-secret-password');
+  await page.locator('#recoveryPasswordAgain').fill('New-secret-password');
+  await page.locator('#recoverySave').click();
+  await page.locator('#recoveryLogin').waitFor({ state: 'visible' });
+  const update = calls.find(c => c.method === 'PUT');
+  assert.deepEqual(update.body, { password: 'New-secret-password' });
+  assert.equal(update.authorization, 'Bearer ' + token);
+  assert.equal(await page.locator('#recoveryPassword').inputValue(), '');
+  assert.equal(await page.locator('#recoveryPasswordAgain').inputValue(), '');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/'))), savedSession);
+  const current = await vault(page);
+  assert.deepEqual(current.projects[0].data, fixtures.find(f => f.name === 'unknown-fields-preserved').data);
+  const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  for (const secret of [token, refresh, 'New-secret-password']) assert.equal(stored.includes(secret), false);
+  await page.locator('#recoveryClose').click();
+});
+
+test('password validation blocks writes and transient failure permits an explicit retry', async () => {
+  const { page, calls, state } = await recoveryDevice(recoveryFragment, { updateStatus: 503 });
+  await page.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+  await page.locator('#recoveryPassword').fill('short'); await page.locator('#recoverySave').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /12/);
+  await page.locator('#recoveryPassword').fill('New-secret-password'); await page.locator('#recoveryPasswordAgain').fill('Different-password'); await page.locator('#recoverySave').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /не совпадают/);
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  await page.locator('#recoveryPasswordAgain').fill('New-secret-password'); await page.locator('#recoverySave').click();
+  await page.waitForFunction(() => document.getElementById('recoveryError').textContent.includes('Не удалось сохранить'));
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 1);
+  assert.equal(await page.locator('#recoveryPassword').inputValue(), '');
+  state.updateStatus = 200;
+  await page.locator('#recoveryPassword').fill('New-secret-password'); await page.locator('#recoveryPasswordAgain').fill('New-secret-password'); await page.locator('#recoverySave').click();
+  await page.locator('#recoveryLogin').waitFor({ state: 'visible' });
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 2);
+});
+
+test('expired, malformed and wrong-type recovery links cannot change a password', async () => {
+  for (const [fragment, options] of [[recoveryFragment, { verifyStatus: 401 }], ['?recovery=1#error=access_denied&error_description=expired', {}], ['?recovery=1#type=signup&access_token=not-recovery', {}]]) {
+    const { page, calls } = await recoveryDevice(fragment, options);
+    await page.waitForFunction(() => document.getElementById('recoveryError').textContent.length > 0);
+    assert.equal(page.url(), origin);
+    assert.equal(await page.locator('#recoveryPasswordForm').isVisible(), false);
+    assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+    assert.equal((await page.locator('#recoveryDialog').textContent()).includes('recovery-access-test'), false);
+  }
+});
+
+test('closing recovery while checking a link discards late results and never retains its session', async () => {
+  let release; const verifyGate = new Promise(resolve => { release = resolve; });
+  const { page, calls, token } = await recoveryDevice(recoveryFragment, { verifyGate });
+  try {
+    await page.locator('#recoveryDialog').waitFor({ state: 'visible' });
+    await page.locator('#recoveryClose').click();
+    release();
+    await page.waitForFunction(() => !document.getElementById('recoveryDialog').open);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('#recoveryPasswordForm').isVisible(), false);
+    assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+    assert.equal((await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).includes(token), false);
+  } finally { release(); }
 });
