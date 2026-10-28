@@ -22,6 +22,22 @@ alter table roadmap_private.integration_tokens enable row level security;
 revoke all on roadmap_private.integration_tokens from public,anon,authenticated;
 create index if not exists integration_tokens_owner_project on roadmap_private.integration_tokens(owner,project_id);
 
+-- Locked capability check shared by every integration endpoint. Keep it here so
+-- integrations.sql alone updates legacy full-project RPCs as well.
+create or replace function roadmap_private.integration_authorize(p_project_id uuid,p_permission text)
+returns roadmap_private.integration_tokens language plpgsql security invoker set search_path = '' as $$
+declare secret text := coalesce(nullif(current_setting('request.headers',true),'')::jsonb->>'x-roadmapler-token',''); capability roadmap_private.integration_tokens;
+begin
+ if secret !~ '^rmi_[0-9a-f]{64}$' then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
+ select * into capability from roadmap_private.integration_tokens t where t.token_hash=pg_catalog.sha256(pg_catalog.convert_to(secret,'UTF8')) for update;
+ if capability.id is null or capability.revoked_at is not null or capability.expires_at<=clock_timestamp() then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
+ if p_project_id is null or capability.project_id<>p_project_id then raise sqlstate 'PT403' using message='Токен не даёт доступ к этому проекту.'; end if;
+ if p_permission is null or p_permission not in ('read','write','delete') then raise sqlstate 'PT400' using message='Неизвестное действие.'; end if;
+ if (p_permission='read' and not capability.can_read) or (p_permission='write' and not capability.can_write) or (p_permission='delete' and not capability.can_delete) then raise sqlstate 'PT403' using message='У токена нет нужного разрешения.'; end if;
+ return capability;
+end $$;
+revoke all on function roadmap_private.integration_authorize(uuid,text) from public,anon,authenticated;
+
 create or replace function public.roadmap_integration_create(p_project_id uuid,p_name text,p_expires_at timestamptz,p_read boolean default true,p_write boolean default false,p_delete boolean default false)
 returns table(id uuid,name text,project_id uuid,prefix text,can_read boolean,can_write boolean,can_delete boolean,created_at timestamptz,expires_at timestamptz,revoked_at timestamptz,last_used_at timestamptz,secret_token text)
 language plpgsql security definer set search_path = '' as $$
@@ -64,16 +80,10 @@ create or replace function public.roadmap_integration_access(p_project_id uuid,p
 returns table(id uuid,revision bigint,data jsonb,deleted boolean,updated_at timestamptz)
 language plpgsql security definer set search_path = '' as $$
 declare
- secret text := coalesce(nullif(current_setting('request.headers',true),'')::jsonb->>'x-roadmapler-token','');
  token_row roadmap_private.integration_tokens;
  current_row public.roadmap_projects;
 begin
- if secret !~ '^rmi_[0-9a-f]{64}$' then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
- select * into token_row from roadmap_private.integration_tokens t where t.token_hash=pg_catalog.sha256(pg_catalog.convert_to(secret,'UTF8')) for update;
- if token_row.id is null or token_row.revoked_at is not null or token_row.expires_at<=clock_timestamp() then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
- if p_project_id is null or token_row.project_id<>p_project_id then raise sqlstate 'PT403' using message='Токен не даёт доступ к этому проекту.'; end if;
- if p_action is null or p_action not in ('read','write','delete') then raise sqlstate 'PT400' using message='Неизвестное действие.'; end if;
- if (p_action='read' and not token_row.can_read) or (p_action='write' and not token_row.can_write) or (p_action='delete' and not token_row.can_delete) then raise sqlstate 'PT403' using message='У токена нет нужного разрешения.'; end if;
+ token_row:=roadmap_private.integration_authorize(p_project_id,p_action);
  select * into current_row from public.roadmap_projects p where p.owner=token_row.owner and p.id=p_project_id;
  if current_row.id is null then raise sqlstate 'PT404' using message='Проект не найден.'; end if;
  if p_action='read' then

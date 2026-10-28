@@ -41,6 +41,16 @@ try:
         if accepted != fixture['valid']:
             raise AssertionError(f"{fixture['name']}: expected valid={fixture['valid']}; {result.stderr}")
     print(f"PASS PostgreSQL contract: {len(fixtures)} shared fixtures; repeatable migration; isolated socket only.")
+    # Reapply in documented order twice, including a deployed pre-refactor helper.
+    # Old compact deployments defined this helper in integration-api.sql.
+    legacy = (ROOT / 'server/integrations.sql').read_text()
+    require(legacy)
+    require("create or replace function roadmap_private.integration_authorize(p_project_id uuid,p_permission text) returns roadmap_private.integration_tokens language plpgsql security invoker set search_path = '' as $$begin raise exception 'stale authorizer'; end$$;")
+    for _ in range(2):
+        require((ROOT / 'server/integrations.sql').read_text())
+        require((ROOT / 'server/integration-api.sql').read_text())
+    require((ROOT / 'tests/sql/integration_auth.sql').read_text())
+    print("PASS integration authorization: anon/authenticated, full/card/structure/delta RPCs, permissions, expiry, revoke, owner/project isolation, revisions, tombstones, private helper, repeatable upgrade.")
 finally:
     if started:
         subprocess.run([str(BIN / 'pg_ctl'), '-D', str(cluster / 'db'), '-m', 'fast', '-w', 'stop'], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
