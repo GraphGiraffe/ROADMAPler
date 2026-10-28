@@ -1,19 +1,6 @@
 -- Apply after server/supabase.sql and server/integrations.sql. Additive and repeatable.
 begin;
--- Locked capability check shared by the compact card and delta endpoints.
-create or replace function roadmap_private.integration_authorize(p_project_id uuid,p_permission text)
-returns roadmap_private.integration_tokens language plpgsql security invoker set search_path = '' as $$
-declare secret text := coalesce(nullif(current_setting('request.headers',true),'')::jsonb->>'x-roadmapler-token',''); capability roadmap_private.integration_tokens;
-begin
- if secret !~ '^rmi_[0-9a-f]{64}$' then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
- select * into capability from roadmap_private.integration_tokens t where t.token_hash=pg_catalog.sha256(pg_catalog.convert_to(secret,'UTF8')) for update;
- if capability.id is null or capability.revoked_at is not null or capability.expires_at<=clock_timestamp() then raise sqlstate 'PT401' using message='Недействительный токен интеграции.'; end if;
- if p_project_id is null or capability.project_id<>p_project_id then raise sqlstate 'PT403' using message='Токен не даёт доступ к этому проекту.'; end if;
- if p_permission is null or p_permission not in ('read','write') or (p_permission='read' and not capability.can_read) or (p_permission='write' and not capability.can_write) then raise sqlstate 'PT403' using message='У токена нет нужного разрешения.'; end if;
- return capability;
-end $$;
-revoke all on function roadmap_private.integration_authorize(uuid,text) from public,anon,authenticated;
-
+-- Authorization is defined by server/integrations.sql for both full and compact APIs.
 create or replace function public.roadmap_integration_cards(
  p_project_id uuid,p_action text default 'search',p_task_id text default null,p_expected bigint default null,p_patch jsonb default null,
  p_query text default null,p_track text default null,p_release text default null,p_status text default null,p_limit integer default 50,p_offset integer default 0)
