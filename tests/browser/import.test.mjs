@@ -1,7 +1,7 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, extname } from 'node:path';
@@ -16,7 +16,7 @@ const contexts = new Set();
 before(async () => {
   server = createServer(async (request, response) => {
     try {
-      const relative = decodeURIComponent(new URL(request.url, 'http://local').pathname).replace(/^\/ROADMAPler\//, '') || 'index.html';
+      const relative = decodeURIComponent(new URL(request.url, 'http://local').pathname).replace(/^\/(?:ROADMAPler|SECOND)\//, '') || 'index.html';
       const path = resolve(root, 'site', relative);
       if (!path.startsWith(resolve(root, 'site') + '/')) throw Error('Invalid path');
       const types = { '.html': 'text/html', '.js': 'application/javascript', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml' };
@@ -41,7 +41,7 @@ async function device(serviceWorkers = 'block') {
   contexts.add(context);
   const page = await context.newPage();
   await page.goto(origin);
-  await page.waitForFunction(() => window.roadmapApp && window.roadmapCloud);
+  await page.waitForFunction(() => window.roadmapApp && window.roadmapCloud && window.roadmapApp.canWrite());
   return { context, page };
 }
 async function vault(page) { return page.evaluate(() => window.roadmapApp.getVault()); }
@@ -175,7 +175,7 @@ test('PWA caches the shared contract and reloads offline', async () => {
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat && window.RoadmapHistory);
+  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat && window.RoadmapHistory && window.RoadmapRecovery);
   assert.equal(await page.evaluate(() => window.RoadmapProjectFormat.validateProject(window.roadmapApp.getVault().projects[0].data).format), 'roadmap-project');
   await context.setOffline(false);
 });
@@ -300,4 +300,303 @@ test('checkpoint shares history budget across projects and fails safely on quota
   assert.equal(result.error, 'QuotaExceededError');
   assert.equal(result.unchanged, true);
   assert.ok(result.data.every(value => value === 'x'.repeat(180000) + '4'));
+});
+
+test('card opens directly in editor from its title and edit icon', async () => {
+  const { page } = await device();
+  await page.getByRole('button', { name: 'Создать карточку: Продукт / Backlog', exact: true }).click();
+  await page.locator('#taskName').fill('Editable card');
+  await page.locator('#taskBody').fill('Original description');
+  await page.locator('#saveTask').click();
+  const card = page.locator('.card').filter({ hasText: 'Editable card' });
+  await card.locator('.card-open').click();
+  assert.equal(await page.locator('#taskDialog').isVisible(), true);
+  assert.equal(await page.locator('#taskBody').inputValue(), 'Original description');
+  await page.locator('#taskBody').fill('Cancelled description');
+  await page.locator('#taskCancel').click();
+  await card.getByRole('button', { name: 'Редактировать карточку Editable card', exact: true }).click();
+  assert.equal(await page.locator('#taskBody').inputValue(), 'Original description');
+  await page.locator('#taskBody').fill('Saved description');
+  await page.locator('#saveTask').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Saved description');
+  await page.locator('#undo').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Original description');
+  await page.locator('#redo').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Saved description');
+  assert.equal(await page.locator('#cardView').count(), 0);
+});
+
+test('Integrations offers the same checked plugin ZIP as the discovery API without login', async () => {
+  const { context, page } = await device();
+  const data = await (await context.request.get(origin + 'api/agent-plugin/manifest.json')).json();
+  assert.equal(data.name, 'roadmapler'); assert.equal(data.credentialsIncluded, false);
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Интеграции', exact: true }).click();
+  await page.locator('#agentPluginDownload').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#agentPluginState').textContent(), new RegExp(data.version.replaceAll('.', '\\.')));
+  const href = await page.locator('#agentPluginDownload').getAttribute('href');
+  assert.equal(href, new URL(data.archive.url, origin + 'api/agent-plugin/manifest.json').href);
+  assert.equal(await page.locator('#integrationForm').isVisible(), false);
+  const pending = page.waitForEvent('download');
+  await page.locator('#agentPluginDownload').click();
+  const download = await pending;
+  const stream = await download.createReadStream(), chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const archive = Buffer.concat(chunks);
+  assert.equal(archive.length, data.archive.bytes);
+  const { createHash } = await import('node:crypto');
+  assert.equal(createHash('sha256').update(archive).digest('hex'), data.archive.sha256);
+  assert.match((await context.request.get(origin + 'api/agent-plugin/README.txt')).headers()['content-type'] || '', /./);
+});
+
+test('plugin download failure is shown in app and can be retried', async () => {
+  const { page } = await device();
+  await page.route('**/api/agent-plugin/manifest.json', route => route.fulfill({ status: 503, body: '{}' }));
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Интеграции', exact: true }).click();
+  await page.locator('#agentPluginRetry').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#agentPluginDownload').isVisible(), false);
+  assert.match(await page.locator('#agentPluginState').textContent(), /Не удалось/);
+  await page.unroute('**/api/agent-plugin/manifest.json');
+  await page.locator('#agentPluginRetry').click();
+  await page.locator('#agentPluginDownload').waitFor({ state: 'visible' });
+});
+
+async function recoveryDevice(fragment = '', options = {}) {
+  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  contexts.add(context);
+  const calls = [], state = { recoverStatus: 200, verifyStatus: 200, updateStatus: 200, ...options };
+  const token = 'recovery-access-test', refresh = 'recovery-refresh-test';
+  if (state.savedSession) await context.addInitScript(({ origin, session, data }) => {
+    localStorage.setItem('roadmapler-cloud:/ROADMAPler/', JSON.stringify(session));
+    localStorage.setItem('roadmapler-projects:/ROADMAPler/', JSON.stringify({ version: 1, active: 'saved', projects: [{ id: 'saved', data }] }));
+  }, { origin, session: state.savedSession, data: fixtures.find(f => f.name === 'unknown-fields-preserved').data });
+  let page;
+  await context.route('https://klsxfhettffjbnmuxivg.supabase.co/**', async route => {
+    const request = route.request(), url = new URL(request.url());
+    calls.push({ path: url.pathname, query: url.search, method: request.method(), body: request.postDataJSON(), authorization: request.headers().authorization, pageURL: page.url() });
+    if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: [] });
+    if (url.pathname === '/auth/v1/recover') return route.fulfill({ status: state.recoverStatus, json: state.recoverStatus === 200 ? {} : { msg: 'rate limit' } });
+    if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
+    if (url.pathname === '/auth/v1/user') {
+      if (request.method() === 'GET' && state.verifyGate) await state.verifyGate;
+      const status = request.method() === 'PUT' ? state.updateStatus : state.verifyStatus;
+      return route.fulfill({ status, json: status === 200 ? { id: 'recovered-user', email: 'recovered@example.org' } : { msg: 'Rejected ' + token } });
+    }
+    return route.abort();
+  });
+  page = await context.newPage();
+  await page.goto(origin + fragment);
+  await page.waitForFunction(() => window.roadmapApp && window.RoadmapRecovery);
+  return { context, page, calls, state, token, refresh };
+}
+async function openRecoveryRequest(page) {
+  await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true);
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
+  await page.locator('#cloudForgotPassword').click();
+}
+const recoveryFragment = '?recovery=1#type=recovery&access_token=recovery-access-test&refresh_token=recovery-refresh-test';
+
+test('recovery email validates locally and sends a scoped redirect without exposing account existence', async () => {
+  const { page, calls } = await recoveryDevice();
+  const before = await vault(page);
+  await openRecoveryRequest(page);
+  await page.locator('#recoveryEmail').fill('invalid'); await page.locator('#recoverySend').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /корректную/);
+  assert.equal(calls.length, 0);
+  await page.locator('#recoveryEmail').fill('user@example.org'); await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryRequest').hidden);
+  assert.match(await page.locator('#recoveryState').textContent(), /Если аккаунт/);
+  assert.deepEqual(calls[0].body, { email: 'user@example.org' });
+  assert.equal(new URLSearchParams(calls[0].query).get('redirect_to'), origin + '?recovery=1');
+  assert.equal(calls[0].method, 'POST'); assert.equal(calls[0].authorization, undefined);
+  assert.deepEqual(await vault(page), before);
+});
+
+test('recovery email reports rate/network errors in app and supports explicit retry', async () => {
+  const { page, calls, state } = await recoveryDevice('', { recoverStatus: 429 });
+  await openRecoveryRequest(page); await page.locator('#recoveryEmail').fill('user@example.org');
+  await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryError').textContent.includes('Не удалось'));
+  assert.equal(calls.length, 1); assert.equal(await page.locator('#recoverySend').isEnabled(), true);
+  state.recoverStatus = 200; await page.locator('#recoverySend').click();
+  await page.waitForFunction(() => document.getElementById('recoveryRequest').hidden);
+  assert.equal(calls.length, 2);
+});
+
+test('recovery callback clears URL secrets and changes password without replacing the existing account or projects', async () => {
+  const savedSession = { provider: 'supabase', url: 'https://klsxfhettffjbnmuxivg.supabase.co', key: 'sb_publishable_saved', token: 'existing-access', refresh: 'existing-refresh', user: { id: 'existing-user', email: 'existing@example.org' }, expires: Date.now() + 3600000, remember: true };
+  const { page, calls, token, refresh } = await recoveryDevice(recoveryFragment, { savedSession });
+  await page.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+  assert.equal(page.url(), origin);
+  assert.match(await page.locator('#recoveryState').textContent(), /recovered@example.org/);
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  assert.ok(calls.filter(c => c.path === '/auth/v1/user').every(c => !c.pageURL.includes(token) && !c.pageURL.includes(refresh)));
+  await page.locator('#recoveryPassword').fill('New-secret-password');
+  await page.locator('#recoveryPasswordAgain').fill('New-secret-password');
+  await page.locator('#recoverySave').click();
+  await page.locator('#recoveryLogin').waitFor({ state: 'visible' });
+  const update = calls.find(c => c.method === 'PUT');
+  assert.deepEqual(update.body, { password: 'New-secret-password' });
+  assert.equal(update.authorization, 'Bearer ' + token);
+  assert.equal(await page.locator('#recoveryPassword').inputValue(), '');
+  assert.equal(await page.locator('#recoveryPasswordAgain').inputValue(), '');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/'))), savedSession);
+  const current = await vault(page);
+  assert.deepEqual(current.projects[0].data, fixtures.find(f => f.name === 'unknown-fields-preserved').data);
+  const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  for (const secret of [token, refresh, 'New-secret-password']) assert.equal(stored.includes(secret), false);
+  await page.locator('#recoveryClose').click();
+});
+
+test('password validation blocks writes and transient failure permits an explicit retry', async () => {
+  const { page, calls, state } = await recoveryDevice(recoveryFragment, { updateStatus: 503 });
+  await page.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+  await page.locator('#recoveryPassword').fill('short'); await page.locator('#recoverySave').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /12/);
+  await page.locator('#recoveryPassword').fill('New-secret-password'); await page.locator('#recoveryPasswordAgain').fill('Different-password'); await page.locator('#recoverySave').click();
+  assert.match(await page.locator('#recoveryError').textContent(), /не совпадают/);
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  await page.locator('#recoveryPasswordAgain').fill('New-secret-password'); await page.locator('#recoverySave').click();
+  await page.waitForFunction(() => document.getElementById('recoveryError').textContent.includes('Не удалось сохранить'));
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 1);
+  assert.equal(await page.locator('#recoveryPassword').inputValue(), '');
+  state.updateStatus = 200;
+  await page.locator('#recoveryPassword').fill('New-secret-password'); await page.locator('#recoveryPasswordAgain').fill('New-secret-password'); await page.locator('#recoverySave').click();
+  await page.locator('#recoveryLogin').waitFor({ state: 'visible' });
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 2);
+});
+
+test('expired, malformed and wrong-type recovery links cannot change a password', async () => {
+  for (const [fragment, options] of [[recoveryFragment, { verifyStatus: 401 }], ['?recovery=1#error=access_denied&error_description=expired', {}], ['?recovery=1#type=signup&access_token=not-recovery', {}]]) {
+    const { page, calls } = await recoveryDevice(fragment, options);
+    await page.waitForFunction(() => document.getElementById('recoveryError').textContent.length > 0);
+    assert.equal(page.url(), origin);
+    assert.equal(await page.locator('#recoveryPasswordForm').isVisible(), false);
+    assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+    assert.equal((await page.locator('#recoveryDialog').textContent()).includes('recovery-access-test'), false);
+  }
+});
+
+test('closing recovery while checking a link discards late results and never retains its session', async () => {
+  let release; const verifyGate = new Promise(resolve => { release = resolve; });
+  const { page, calls, token } = await recoveryDevice(recoveryFragment, { verifyGate });
+  try {
+    await page.locator('#recoveryDialog').waitFor({ state: 'visible' });
+    await page.locator('#recoveryClose').click();
+    release();
+    await page.waitForFunction(() => !document.getElementById('recoveryDialog').open);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('#recoveryPasswordForm').isVisible(), false);
+    assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+    assert.equal((await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).includes(token), false);
+  } finally { release(); }
+});
+
+
+test('large-board measurement: search coalesces rendering and avoids vault serialization', async () => {
+  const { page } = await device();
+  const measurements = [];
+  for (const count of [200, 1000]) {
+    await page.evaluate(count => {
+      const next = window.roadmapApp.getVault(), data = next.projects[0].data;
+      data.formatVersion = 2;
+      data.tracks = Array.from({ length: 6 }, (_, i) => ({ id: 'track-' + i, title: 'Track ' + i }));
+      data.releases = Array.from({ length: 8 }, (_, i) => ({ id: 'release-' + i, title: 'Release ' + i }));
+      data.tasks = Array.from({ length: count }, (_, i) => ({ id: 'card-' + i, title: 'Card ' + i, description: 'Details '.repeat(20), status: 'planned', track: 'track-' + (i % 6), release: 'release-' + (i % 8) }));
+      window.roadmapApp.saveVault(next);
+      document.getElementById('search').value = '';
+      document.getElementById('search').dispatchEvent(new Event('input'));
+    }, count);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 400)));
+    measurements.push(await page.evaluate(async count => {
+      let vaultSerializations = 0, viewWrites = 0, projectWrites = 0, renders = 0;
+      const stringify = JSON.stringify, setItem = Storage.prototype.setItem, replace = Element.prototype.replaceChildren;
+      JSON.stringify = function(value, ...args) { if (value?.projects?.some?.(p => p?.data?.format === 'roadmap-project')) vaultSerializations++; return stringify.call(this, value, ...args); };
+      Storage.prototype.setItem = function(key, value) { if (key.startsWith('roadmapler-project-views:')) viewWrites++; if (key.startsWith('roadmapler-projects:')) projectWrites++; return setItem.call(this, key, value); };
+      Element.prototype.replaceChildren = function(...args) { if (this.id === 'board') renders++; return replace.apply(this, args); };
+      try {
+        const started = performance.now(), search = document.getElementById('search');
+        for (const query of ['C', 'Ca', 'Car', 'Card', 'Card ', 'Card 9', 'Card ', 'Card 2', 'Card ', 'Card 1']) { search.value = query; search.dispatchEvent(new Event('input')); }
+        const dispatchMs = performance.now() - started;
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return { cards: count, inputEvents: 10, dispatchMs: +dispatchMs.toFixed(2), renders, viewWrites, vaultSerializations, projectWrites, displayedCards: document.querySelectorAll('.card').length };
+      } finally { JSON.stringify = stringify; Storage.prototype.setItem = setItem; Element.prototype.replaceChildren = replace; }
+    }, count));
+  }
+  await mkdir(join(root, 'tmp_files'), { recursive: true });
+  const phase = process.env.ROADMAP_BENCH_BASELINE === '1' ? 'before' : 'after';
+  await writeFile(join(root, 'tmp_files', 'board-performance-' + phase + '.json'), JSON.stringify(measurements, null, 2) + '\n');
+  console.log('Large-board measurement:', JSON.stringify(measurements));
+  if (phase === 'after') for (const result of measurements) { assert.equal(result.projectWrites, 0); assert.equal(result.vaultSerializations, 0); assert.ok(result.renders <= 1); assert.ok(result.viewWrites <= 1); assert.ok(result.displayedCards > 0); }
+});
+
+test('two tabs serialize project writes; promotion never overwrites a stale snapshot', async () => {
+  const { context, page: first } = await device();
+  const second = await context.newPage(); await second.goto(origin); await second.waitForFunction(() => window.roadmapApp);
+  assert.equal(await second.evaluate(() => window.roadmapApp.canWrite()), false);
+  const result = await Promise.all([
+    first.evaluate(() => change(() => { state.project.description = 'First tab'; })),
+    second.evaluate(() => change(() => { state.project.description = 'Second tab'; }))
+  ]);
+  assert.deepEqual(result, [true, false]);
+  await second.waitForFunction(() => vaultStale);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).projects[0].data.project.description), 'First tab');
+  await first.close();
+  await second.waitForFunction(() => writeGuard.canWrite());
+  assert.equal(await second.evaluate(() => window.roadmapApp.canWrite()), false);
+  assert.equal(await second.evaluate(() => change(() => { state.project.description = 'Stale write'; })), false);
+  await second.reload(); await second.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal((await vault(second)).projects[0].data.project.description, 'First tab');
+  assert.equal(await second.evaluate(() => change(() => { state.project.description = 'Fresh second tab'; })), true);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).projects[0].data.project.description), 'Fresh second tab');
+});
+
+test('write ownership is scoped to the application path', async () => {
+  const { context, page: first } = await device();
+  const second = await context.newPage(); await second.goto(origin.replace('/ROADMAPler/', '/SECOND/')); await second.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await first.evaluate(() => change(() => { state.project.name = 'First scope'; })), true);
+  assert.equal(await second.evaluate(() => change(() => { state.project.name = 'Second scope'; })), true);
+  assert.equal((await vault(first)).projects[0].data.project.name, 'First scope');
+  assert.equal((await vault(second)).projects[0].data.project.name, 'Second scope');
+});
+
+test('unsupported locks keep data readable and exportable without unsafe writes', async () => {
+  const context = await browser.newContext({ acceptDownloads: true, serviceWorkers: 'block' });contexts.add(context);
+  await context.addInitScript(() => Object.defineProperty(navigator, 'locks', { value: undefined }));
+  const page = await context.newPage();await page.goto(origin);await page.waitForFunction(() => window.roadmapApp);
+  const before = await vault(page);
+  assert.equal(await page.evaluate(() => window.roadmapApp.canWrite()), false);
+  assert.equal(await page.evaluate(() => change(() => { state.project.description = 'Unsafe write'; })), false);
+  assert.deepEqual(await vault(page), before);
+  assert.equal(await page.evaluate(() => localStorage.getItem(vaultKey)), null);
+  const download = page.waitForEvent('download');await page.evaluate(() => document.getElementById('exportProject').click());
+  assert.equal((await download).suggestedFilename(), 'project.roadmap.json');
+});
+
+test('project views migrate without deleting legacy data and flush on immediate reload', async () => {
+  const context = await browser.newContext({ serviceWorkers: 'block' });contexts.add(context);
+  const legacy = JSON.stringify({ version: 1, projects: [['initial', { search: 'legacy', showDone: false, showDoneReleases: false }]] });
+  await context.addInitScript(raw => { if (!localStorage.getItem('roadmapler-project-views:/ROADMAPler/')) localStorage.setItem('roadmapler-project-views:/ROADMAPler/', raw); }, legacy);
+  const page = await context.newPage();await page.goto(origin);await page.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await page.locator('#search').inputValue(), 'legacy');
+  await page.locator('#search').fill('latest input');
+  await page.reload();await page.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await page.locator('#search').inputValue(), 'latest input');
+  assert.equal(await page.locator('#showDone').isChecked(), false);
+  assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-project-views:/ROADMAPler/')), legacy);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem(viewStorageKey(vault.active))).search), 'latest input');
+});
+
+test('read-only tabs can browse projects and independent view writes do not overwrite each other', async () => {
+  const { context, page: first } = await device();
+  const ids = await first.evaluate(() => { const next = window.roadmapApp.getVault();next.projects.push(window.roadmapApp.emptyProject());window.roadmapApp.saveVault(next);return next.projects.map(p => p.id); });
+  const second = await context.newPage();await second.goto(origin);await second.waitForFunction(() => window.roadmapApp);
+  await second.evaluate(id => switchProject(id), ids[1]);
+  assert.equal((await vault(second)).active, ids[1]);
+  await first.locator('#search').fill('First view');await second.locator('#search').fill('Second view');
+  await first.evaluate(() => flushProjectViews());await second.evaluate(() => flushProjectViews());
+  const views = await first.evaluate(ids => ids.map(id => JSON.parse(localStorage.getItem(viewStorageKey(id))).search), ids);
+  assert.deepEqual(views, ['First view', 'Second view']);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).active), ids[0]);
 });

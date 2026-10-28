@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "roadmapler",
+  "version": "0.1.0",
+  "description": "Project-scoped ROADMAPler skills and local MCP tools for agents.",
+  "author": {"name": "GraphGiraffe"},
+  "homepage": "https://graphgiraffe.github.io/ROADMAPler/",
+  "repository": "https://github.com/GraphGiraffe/ROADMAPler",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": ["roadmap", "planning", "mcp"],
+  "extensions": {"com.openai": {"interface": {
+    "displayName": "ROADMAPler",
+    "shortDescription": "Проекты, релизы и карточки",
+    "longDescription": "Работа с дорожными картами через токен одного проекта: поиск, карточки, комментарии, треки, релизы и изменения по ревизиям.",
+    "developerName": "GraphGiraffe",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"]
+  }}}
+}
