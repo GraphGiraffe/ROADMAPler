@@ -55,7 +55,7 @@
     next={provider:'github',repo,branch,token,password,encrypt:$('cloudEncrypt').checked,remember:$('cloudRemember').checked};nextClient=new S.GitHub(next);
    }else{
     const {supabaseUrl:url,supabaseKey:key}=settings();if(!url||!key)throw Error('Владелец ещё не подключил облачный сервер ROADMAPler.');
-    next={provider:'supabase',url,key,remember:$('cloudRemember').checked};nextClient=new S.Supabase(next,value=>{if(attempt===generation)storeSession(value)});
+    next={provider:'supabase',url,key,remember:$('cloudRemember').checked};nextClient=new S.Supabase(next,value=>{if(client===nextClient)storeSession(value)});
     const user=await nextClient.login($('cloudEmail').value.trim(),$('cloudPassword').value,register);if(!user){$('cloudError').textContent='Проверьте почту для подтверждения регистрации, затем войдите.';return}
    }
    const profile=await nextClient.connect();if(attempt!==generation)return;next.label=profile.name;client=nextClient;config=next;storeSession(next);conflicts.clear();$('cloudPassword').value='';$('cloudToken').value='';$('cloudKey').value='';$('cloudAccount').close();setStatus('Подключено: '+profile.name,'pending');delay=100;notify();
@@ -158,7 +158,7 @@
  try{
   const raw=localStorage.getItem(key)||sessionStorage.getItem(key);if(raw){const saved=JSON.parse(raw);$('cloudProvider').value=saved.provider;$('cloudRemember').checked=!!saved.remember;
    if(saved.provider==='github'){$('cloudRepo').value=saved.repo;$('cloudBranch').value=saved.branch;$('cloudEncrypt').checked=!!saved.encrypt;if(saved.encrypt){$('cloudToken').value=saved.token;setStatus('Введите ключ, чтобы возобновить синхронизацию GitHub.','auth')}else{config=saved;client=new S.GitHub(saved);setStatus('Ожидание синхронизации.','pending');notify()}}
-   else if(saved.provider==='supabase'){config=saved;const sessionEpoch=generation;client=new S.Supabase(saved,value=>{if(sessionEpoch===generation)storeSession(value)});setStatus('Ожидание синхронизации.','pending');notify()}
+   else if(saved.provider==='supabase'){config=saved;const restoredClient=new S.Supabase(saved,value=>{if(client===restoredClient)storeSession(value)});client=restoredClient;setStatus('Ожидание синхронизации.','pending');notify()}
   }
  }catch{setStatus('Не удалось восстановить подключение. Войдите заново.','auth')}
  paint();

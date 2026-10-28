@@ -377,7 +377,7 @@ async function recoveryDevice(fragment = '', options = {}) {
     calls.push({ path: url.pathname, query: url.search, method: request.method(), body: request.postDataJSON(), authorization: request.headers().authorization, pageURL: page.url() });
     if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: [] });
     if (url.pathname === '/auth/v1/recover') return route.fulfill({ status: state.recoverStatus, json: state.recoverStatus === 200 ? {} : { msg: 'rate limit' } });
-    if (url.pathname === '/auth/v1/token') { if (state.refreshGate) await state.refreshGate; return route.fulfill({ json: { access_token: 'late-access', refresh_token: 'late-refresh', expires_in: 3600, user: { id: 'existing-user', email: 'signed@example.org' } } }); }
+    if (url.pathname === '/auth/v1/token') { if (url.searchParams.get('grant_type') === 'password' && state.loginStatus) return route.fulfill({ status: state.loginStatus, json: { msg: 'Wrong test password' } }); if (state.refreshGate) await state.refreshGate; return route.fulfill({ json: { access_token: 'late-access', refresh_token: 'late-refresh', expires_in: 3600, user: { id: 'existing-user', email: 'signed@example.org' } } }); }
     if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
     if (url.pathname === '/auth/v1/user') {
       if (request.method() === 'GET' && state.verifyGate) await state.verifyGate;
@@ -664,4 +664,17 @@ test('signout is not undone by an in-flight session refresh', async () => {
     assert.equal(await page.evaluate(() => sessionStorage.getItem('roadmapler-cloud:/ROADMAPler/')), null);
     assert.equal(calls.find(c => c.path === '/auth/v1/logout').authorization, 'Bearer late-access');
   } finally { release(); }
+});
+
+
+test('failed connection switch still persists refreshes of the retained account', async () => {
+  const { page } = await recoveryDevice('', { savedSession: signedInSession(), loginStatus: 400 });
+  await openAccount(page);await page.getByRole('button', { name: 'Сменить подключение', exact: true }).click();
+  await page.locator('#cloudEmail').fill('other@example.org');await page.locator('#cloudPassword').fill('Wrong-test-password');await page.locator('#cloudConnect').click();
+  await page.waitForFunction(() => document.getElementById('cloudError').textContent.includes('Wrong test password'));
+  await page.clock.setFixedTime(new Date(Date.now() + 7200000));
+  await page.locator('#cloudRetry').click();
+  await page.waitForFunction(() => document.getElementById('cloudAccountState').textContent.includes('Синхронизировано'));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/')));
+  assert.equal(saved.token, 'late-access');assert.equal(saved.user.id, 'existing-user');
 });
