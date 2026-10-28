@@ -152,14 +152,17 @@ test('portable HTML includes the shared validator and preserves data offline', a
     const path = join(directory, 'project.html');
     await download.saveAs(path);
     const html = await readFile(path, 'utf8');
-    assert.doesNotMatch(html, /src="\.\/app\/project-format\.js"/);
+    assert.doesNotMatch(html, /src="\.\/app\/(project-format|history)\.js"/);
     const portable = await context.newPage();
     const errors = [];
     portable.on('pageerror', error => errors.push(error.message));
     await portable.goto(pathToFileURL(path).href);
     await portable.waitForFunction(() => window.roadmapApp);
     assert.deepEqual(await portable.evaluate(() => window.roadmapApp.getVault().projects[0].data), expected);
-    assert.equal(await portable.locator('[data-project-format][src]').count(), 0);
+    assert.equal(await portable.locator('[data-project-format][src], [data-history][src]').count(), 0);
+    await portable.evaluate(() => change(() => { state.project.description = 'portable edit'; }));
+    await portable.locator('#undo').click();
+    assert.deepEqual(await portable.evaluate(() => window.roadmapApp.getVault().projects[0].data), expected);
     assert.equal(await portable.locator('[data-cloud]').count(), 0);
     assert.equal(await portable.evaluate(() => window.RoadmapProjectFormat.validateProject(window.roadmapApp.getVault().projects[0].data).format), 'roadmap-project');
     assert.deepEqual(errors, []);
@@ -172,7 +175,7 @@ test('PWA caches the shared contract and reloads offline', async () => {
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat);
+  await page.waitForFunction(() => window.roadmapApp && window.RoadmapProjectFormat && window.RoadmapHistory);
   assert.equal(await page.evaluate(() => window.RoadmapProjectFormat.validateProject(window.roadmapApp.getVault().projects[0].data).format), 'roadmap-project');
   await context.setOffline(false);
 });
@@ -200,4 +203,101 @@ test('invalid legacy vault stays unchanged and can be downloaded intact', async 
   await page.locator('#projectForm button[type=submit]').click();
   assert.match(await page.locator('#projectError').textContent(), /Хранилище|хранилище/);
   assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-projects:/ROADMAPler/')), raw);
+});
+
+test('rotated history supports undo, redo, branching and PWA restoration', async () => {
+  const { page } = await device();
+  await page.evaluate(() => {
+    for (let i = 1; i <= 70; i++) change(() => { state.project.description = String(i); });
+  });
+  const checkpoint = await page.evaluate(() => {
+    window.roadmapUpdate.prepare();
+    return JSON.parse(sessionStorage.getItem(updateKey));
+  });
+  assert.equal(checkpoint.undo.length, 50);
+  assert.equal(checkpoint.sessions.find(([id]) => id === JSON.parse(checkpoint.vaultRaw).active)[1].undo.length, 0);
+  await page.reload();
+  await page.waitForFunction(() => window.roadmapApp);
+  await page.evaluate(() => { for (let i = 0; i < 50; i++) document.getElementById('undo').click(); });
+  assert.equal((await vault(page)).projects[0].data.project.description, '20');
+  assert.equal(await page.locator('#undo').isDisabled(), true);
+  await page.evaluate(() => { for (let i = 0; i < 50; i++) document.getElementById('redo').click(); });
+  assert.equal((await vault(page)).projects[0].data.project.description, '70');
+  await page.locator('#undo').click();
+  await page.evaluate(() => change(() => { state.project.description = 'branch'; }));
+  assert.equal(await page.locator('#redo').isDisabled(), true);
+});
+
+test('large projects bound history payload without changing saved data', async () => {
+  const { page } = await device();
+  const result = await page.evaluate(() => {
+    for (let i = 1; i <= 8; i++) change(() => { state.project.description = 'Ж'.repeat(400000) + i; });
+    window.roadmapUpdate.prepare();
+    const checkpoint = JSON.parse(sessionStorage.getItem(updateKey));
+    return { count: checkpoint.undo.length, bytes: RoadmapHistory.bytes(checkpoint.undo) + RoadmapHistory.bytes(checkpoint.redo), max: RoadmapHistory.maxBytes };
+  });
+  assert.equal(result.count, 2);
+  assert.ok(result.bytes <= result.max);
+  await page.locator('#undo').click();
+  assert.equal((await vault(page)).projects[0].data.project.description, 'Ж'.repeat(400000) + '7');
+  await page.locator('#redo').click();
+  assert.equal((await vault(page)).projects[0].data.project.description, 'Ж'.repeat(400000) + '8');
+});
+
+test('cloud and imported histories share limits and stay per project', async () => {
+  const { page } = await device();
+  await page.evaluate(() => {
+    const next = window.roadmapApp.getVault();
+    next.projects.push(window.roadmapApp.emptyProject());
+    next.projects[1].data.project.name = 'Cloud history project';
+    window.roadmapApp.saveVault(next);
+    for (let i = 1; i <= 65; i++) {
+      const changed = window.roadmapApp.getVault();
+      changed.projects[1].data.project.description = 'remote-' + i;
+      window.roadmapApp.saveVault(changed, true);
+    }
+    switchProject(vault.projects[1].id);
+  });
+  for (let i = 1; i <= 3; i++) {
+    const input = (await vault(page)).projects[1].data;
+    input.project.description = 'import-' + i;
+    await imported(page, input);
+    await page.locator('#importDialog').waitFor({ state: 'visible' });
+    await page.locator('#updateImported').click();
+    await page.locator('#importDialog').waitFor({ state: 'hidden' });
+  }
+  await page.evaluate(() => { for (let i = 0; i < 50; i++) document.getElementById('undo').click(); });
+  assert.equal((await vault(page)).projects[1].data.project.description, 'remote-18');
+  await page.evaluate(() => switchProject(vault.projects[0].id));
+  assert.equal(await page.locator('#undo').isDisabled(), true);
+  await page.evaluate(() => switchProject(vault.projects[1].id));
+  assert.equal(await page.locator('#redo').isDisabled(), false);
+});
+
+test('checkpoint shares history budget across projects and fails safely on quota', async () => {
+  const { page } = await device();
+  const result = await page.evaluate(() => {
+    const next = window.roadmapApp.getVault();
+    for (let i = 0; i < 3; i++) next.projects.push(window.roadmapApp.emptyProject());
+    next.projects[1].data.project.name = 'Cloud history project';
+    window.roadmapApp.saveVault(next);
+    for (const project of vault.projects) {
+      switchProject(project.id);
+      for (let i = 1; i <= 4; i++) change(() => { state.project.description = 'x'.repeat(180000) + i; });
+    }
+    window.roadmapUpdate.prepare();
+    const snapshot = JSON.parse(sessionStorage.getItem(updateKey));
+    const size = RoadmapHistory.bytes(snapshot.undo) + RoadmapHistory.bytes(snapshot.redo) + snapshot.sessions.reduce((n, [, saved]) => n + RoadmapHistory.bytes(saved.undo) + RoadmapHistory.bytes(saved.redo), 0);
+    window.roadmapUpdate.cancel();
+    const before = JSON.stringify([undoStack, redoStack, [...projectSessions]]);
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) { if (key === updateKey) throw new DOMException('quota', 'QuotaExceededError'); return original.call(this, key, value); };
+    let error;
+    try { window.roadmapUpdate.prepare(); } catch (e) { error = e.name; } finally { Storage.prototype.setItem = original; }
+    return { size, limit: RoadmapHistory.maxBytes, unchanged: before === JSON.stringify([undoStack, redoStack, [...projectSessions]]), error, data: vault.projects.map(p => p.data.project.description) };
+  });
+  assert.ok(result.size <= result.limit);
+  assert.equal(result.error, 'QuotaExceededError');
+  assert.equal(result.unchanged, true);
+  assert.ok(result.data.every(value => value === 'x'.repeat(180000) + '4'));
 });
