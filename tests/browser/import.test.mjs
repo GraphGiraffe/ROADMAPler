@@ -301,3 +301,27 @@ test('checkpoint shares history budget across projects and fails safely on quota
   assert.equal(result.unchanged, true);
   assert.ok(result.data.every(value => value === 'x'.repeat(180000) + '4'));
 });
+
+test('card opens directly in editor from its title and edit icon', async () => {
+  const { page } = await device();
+  await page.getByRole('button', { name: 'Создать карточку: Продукт / Backlog', exact: true }).click();
+  await page.locator('#taskName').fill('Editable card');
+  await page.locator('#taskBody').fill('Original description');
+  await page.locator('#saveTask').click();
+  const card = page.locator('.card').filter({ hasText: 'Editable card' });
+  await card.locator('.card-open').click();
+  assert.equal(await page.locator('#taskDialog').isVisible(), true);
+  assert.equal(await page.locator('#taskBody').inputValue(), 'Original description');
+  await page.locator('#taskBody').fill('Cancelled description');
+  await page.locator('#taskCancel').click();
+  await card.getByRole('button', { name: 'Редактировать карточку Editable card', exact: true }).click();
+  assert.equal(await page.locator('#taskBody').inputValue(), 'Original description');
+  await page.locator('#taskBody').fill('Saved description');
+  await page.locator('#saveTask').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Saved description');
+  await page.locator('#undo').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Original description');
+  await page.locator('#redo').click();
+  assert.equal((await vault(page)).projects[0].data.tasks[0].description, 'Saved description');
+  assert.equal(await page.locator('#cardView').count(), 0);
+});
