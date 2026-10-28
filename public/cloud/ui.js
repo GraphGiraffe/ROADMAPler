@@ -8,13 +8,14 @@
  const conflicts=new Map();
  const owner=()=>client?.owner;
  const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
- const html=`<dialog id="cloudAccount" data-cloud aria-labelledby="cloudTitle"><h2 id="cloudTitle">Аккаунт и синхронизация</h2>
+ const html=`<dialog id="cloudAccount" data-cloud aria-labelledby="cloudTitle"><h2 id="cloudTitle">Аккаунт</h2>
  <p id="cloudAccountState" role="status"></p><form id="cloudLogin" novalidate>
  <label>Способ синхронизации<select id="cloudProvider"><option value="supabase">ROADMAPler</option><option value="github">Мой GitHub</option></select></label>
  <div id="supabaseFields"><p id="cloudUnavailable" class="note"></p><label>Почта<input id="cloudEmail" type="email" autocomplete="username"></label><label>Пароль<input id="cloudPassword" type="password" autocomplete="current-password" minlength="12"></label></div>
  <div id="githubFields" hidden><label>Приватный репозиторий<input id="cloudRepo" placeholder="владелец/репозиторий" autocomplete="off"></label><label>Ветка<input id="cloudBranch" value="main" autocomplete="off"></label><label>Токен доступа<input id="cloudToken" type="password" autocomplete="off"></label><label class="check-label"><input id="cloudEncrypt" type="checkbox" checked> Шифровать проекты</label><label id="cloudKeyField">Ключ шифрования<input id="cloudKey" type="password" autocomplete="off"></label><p class="note">Токен: доступ Contents — чтение и запись только в выбранном репозитории. Ключ шифрования хранится только в памяти; для другого устройства нужен тот же ключ. Без ключа восстановить зашифрованные проекты нельзя.</p></div>
  <label class="check-label"><input id="cloudRemember" type="checkbox"> Запомнить подключение на этом устройстве</label><p id="cloudError" class="field-error" role="status"></p><div class="actions"><button id="cloudRegister" type="button">Регистрация</button><button id="cloudConnect" class="primary" type="submit">Войти</button></div></form>
- <div class="actions"><button id="cloudDisconnect" type="button" hidden>Локальный режим</button><button id="cloudRetry" type="button" hidden>Синхронизировать</button><button id="cloudResolve" type="button" hidden>Разобрать конфликт</button><button id="cloudClose" type="button">Закрыть</button></div></dialog>
+ <section id="cloudSecurity" class="account-section"><h3>Пароль</h3><div id="cloudSecurityActions" class="actions"></div></section><section id="cloudSyncSection" class="account-section" hidden><h3>Синхронизация</h3><div class="actions"><button id="cloudRetry" type="button" hidden>Синхронизировать сейчас</button><button id="cloudResolve" type="button" hidden>Разобрать конфликт</button></div><p class="note">Локальный или облачный режим выбирается отдельно в настройках проекта.</p></section><div class="actions"><button id="cloudDisconnect" type="button" class="danger" hidden>Выйти из аккаунта</button><button id="cloudClose" type="button">Закрыть</button></div></dialog>
+ <dialog id="cloudSignoutDialog" data-cloud aria-labelledby="cloudSignoutTitle"><h2 id="cloudSignoutTitle">Выйти из аккаунта?</h2><p id="cloudSignoutInfo"></p><div class="actions"><button id="cloudSignoutCancel" type="button">Отмена</button><button id="cloudSignoutConfirm" type="button" class="danger">Выйти</button></div></dialog>
  <dialog id="cloudModeDialog" data-cloud aria-labelledby="cloudModeTitle"><h2 id="cloudModeTitle">Режим проекта</h2><p id="cloudModeInfo"></p><p class="note">Локальный проект не отправляется на сервер. При отключении синхронизации уже созданная облачная копия остаётся в облаке.</p><p id="cloudModeError" class="field-error" role="status"></p><div class="actions"><button id="cloudMakeLocal" type="button">Локальный</button><button id="cloudMakeOnline" type="button" class="primary">Облачный</button><button id="cloudModeClose" type="button">Отмена</button></div></dialog>
  <dialog id="cloudConflict" data-cloud aria-labelledby="cloudConflictTitle"><h2 id="cloudConflictTitle">Изменения на двух устройствах</h2><p id="cloudConflictInfo"></p><p>«Сохранить обе» оставит облачную версию в проекте, а вашу — отдельной локальной копией. «Отправить мою» сохранит облачную версию локальной копией перед отправкой вашей.</p><p id="cloudConflictError" class="field-error" role="status"></p><div class="actions"><button id="cloudKeepBoth" type="button" class="primary">Сохранить обе</button><button id="cloudKeepMine" type="button">Отправить мою</button><button id="cloudConflictClose" type="button">Позже</button></div></dialog>
  <dialog id="cloudHistory" data-cloud aria-labelledby="cloudHistoryTitle"><h2 id="cloudHistoryTitle">Версии проекта</h2><p id="cloudHistoryInfo" role="status"></p><div id="cloudVersions"></div><div class="actions"><button id="cloudHistoryClose" type="button">Закрыть</button></div></dialog>`;
@@ -30,17 +31,17 @@
  function setStatus(text,state){message=text;phase=state;paint()}
  function paint(){
   status.replaceChildren(cloudIcon(phase));status.dataset.state=phase;status.title=message;status.setAttribute('aria-label',message);status.hidden=phase==='local';$('cloudAccountState').textContent=(config?(config.provider==='github'?'GitHub · ':'ROADMAPler · ')+(config.label||'')+' · ':'')+message;
-  $('cloudResolve').hidden=!conflicts.size;$('cloudRetry').hidden=!client;$('cloudDisconnect').hidden=!client;
+  $('cloudResolve').hidden=!conflicts.size;$('cloudRetry').hidden=!client;$('cloudDisconnect').hidden=!client;$('cloudSyncSection').hidden=!client;$('cloudDisconnect').textContent=config?.provider==='github'?'Отключить GitHub':'Выйти из аккаунта';window.RoadmapRecovery?.refresh?.();
   const vault=app.getVault();for(const p of vault.projects){const tab=$('project-tab-'+p.id);if(!tab)continue;tab.querySelector('[data-cloud]')?.remove();if(p.cloud?.enabled){const mark=node('span','','cloud-tab-mark');mark.append(cloudIcon());mark.dataset.cloud='';mark.setAttribute('aria-hidden','true');tab.append(mark);tab.title=p.data.project.name+' · облачный проект'+(p.cloud.owner!==owner()?' · подключите его аккаунт':'')}}
  }
  function storeSession(value){
   const saved={...value};delete saved.password;
   try{localStorage.removeItem(key);sessionStorage.removeItem(key);(value.remember?localStorage:sessionStorage).setItem(key,JSON.stringify(saved))}catch{setStatus('Подключение действует только до закрытия приложения.','error')}
  }
- function fields(){const github=$('cloudProvider').value==='github';$('supabaseFields').hidden=github;$('githubFields').hidden=!github;$('cloudRegister').hidden=github;$('cloudKeyField').hidden=!$('cloudEncrypt').checked;$('cloudUnavailable').textContent=settings().supabaseUrl&&settings().supabaseKey?'':'Облачный сервер ROADMAPler ещё не подключён. Доступны локальный режим и личный GitHub.';app.refreshSelects()}
+ function fields(){const github=$('cloudProvider').value==='github';$('supabaseFields').hidden=github;$('githubFields').hidden=!github;$('cloudRegister').hidden=github;window.RoadmapRecovery?.refresh?.();$('cloudKeyField').hidden=!$('cloudEncrypt').checked;$('cloudUnavailable').textContent=settings().supabaseUrl&&settings().supabaseKey?'':'Облачный сервер ROADMAPler ещё не подключён. Доступны локальный режим и личный GitHub.';app.refreshSelects()}
  $('cloudProvider').onchange=fields;$('cloudEncrypt').onchange=fields;
- const switchButton=node('button','Другое подключение');switchButton.type='button';switchButton.hidden=true;$('cloudAccount').querySelector(':scope > .actions').prepend(switchButton);switchButton.onclick=()=>{$('cloudLogin').hidden=false};
- const showAccount=()=>{$('cloudLogin').hidden=!!client;switchButton.hidden=!client;fields();$('cloudError').textContent='';$('cloudAccount').showModal()};accountButton.onclick=showAccount;status.onclick=()=>conflicts.size?showConflict():showAccount();
+ const switchButton=node('button','Сменить подключение');switchButton.type='button';switchButton.hidden=true;$('cloudAccount').querySelector(':scope > .actions').prepend(switchButton);switchButton.onclick=()=>{$('cloudLogin').hidden=!$('cloudLogin').hidden;switchButton.textContent=$('cloudLogin').hidden?'Сменить подключение':'Отмена смены подключения';fields()};
+ const showAccount=()=>{switchButton.textContent='Сменить подключение';$('cloudLogin').hidden=!!client;switchButton.hidden=!client;fields();$('cloudError').textContent='';$('cloudAccount').showModal()};accountButton.onclick=showAccount;status.onclick=()=>conflicts.size?showConflict():showAccount();
  $('cloudClose').onclick=()=>$('cloudAccount').close();$('cloudRetry').onclick=()=>{delay=100;notify()};$('cloudResolve').onclick=()=>{$('cloudAccount').close();showConflict()};
  async function connect(register=false){
   if(busy){$('cloudError').textContent='Дождитесь завершения синхронизации.';return}
@@ -54,7 +55,7 @@
     next={provider:'github',repo,branch,token,password,encrypt:$('cloudEncrypt').checked,remember:$('cloudRemember').checked};nextClient=new S.GitHub(next);
    }else{
     const {supabaseUrl:url,supabaseKey:key}=settings();if(!url||!key)throw Error('Владелец ещё не подключил облачный сервер ROADMAPler.');
-    next={provider:'supabase',url,key,remember:$('cloudRemember').checked};nextClient=new S.Supabase(next,value=>storeSession(value));
+    next={provider:'supabase',url,key,remember:$('cloudRemember').checked};nextClient=new S.Supabase(next,value=>{if(attempt===generation)storeSession(value)});
     const user=await nextClient.login($('cloudEmail').value.trim(),$('cloudPassword').value,register);if(!user){$('cloudError').textContent='Проверьте почту для подтверждения регистрации, затем войдите.';return}
    }
    const profile=await nextClient.connect();if(attempt!==generation)return;next.label=profile.name;client=nextClient;config=next;storeSession(next);conflicts.clear();$('cloudPassword').value='';$('cloudToken').value='';$('cloudKey').value='';$('cloudAccount').close();setStatus('Подключено: '+profile.name,'pending');delay=100;notify();
@@ -62,7 +63,9 @@
   finally{$('cloudConnect').disabled=false;$('cloudRegister').disabled=false}
  }
  $('cloudLogin').onsubmit=e=>{e.preventDefault();connect()};$('cloudRegister').onclick=()=>connect(true);
- $('cloudDisconnect').onclick=()=>{generation++;client=null;config=null;clearTimeout(timer);conflicts.clear();try{localStorage.removeItem(key);sessionStorage.removeItem(key)}catch{}$('cloudAccount').close();setStatus('Локальный режим. Облачные проекты сохранены на устройстве.','local')};
+ $('cloudDisconnect').onclick=()=>{if(!client)return;const github=config?.provider==='github';$('cloudSignoutTitle').textContent=github?'Отключить GitHub?':'Выйти из аккаунта?';$('cloudSignoutConfirm').textContent=github?'Отключить':'Выйти';$('cloudSignoutInfo').textContent='Синхронизация на этом устройстве остановится. Проекты останутся на устройстве и в облаке. Для продолжения потребуется снова подключиться.';$('cloudSignoutDialog').showModal();$('cloudSignoutCancel').focus()};
+ $('cloudSignoutCancel').onclick=()=>$('cloudSignoutDialog').close();
+ $('cloudSignoutConfirm').onclick=()=>{const previous=client,supabase=config?.provider==='supabase';generation++;client=null;config=null;clearTimeout(timer);conflicts.clear();try{localStorage.removeItem(key);sessionStorage.removeItem(key)}catch{}$('cloudSignoutDialog').close();$('cloudAccount').close();setStatus('Аккаунт отключён. Проекты сохранены на устройстве.','local');if(previous&&supabase)previous.logout().catch(()=>{$('statusMessage').textContent='Подключение удалено с устройства. Сервер не подтвердил выход; проверьте сеть.'})};
  function projectSettings(create){projectButton.hidden=create;historyButton.hidden=create}
  projectButton.onclick=()=>{const p=app.getVault().projects.find(p=>p.id===app.getVault().active);$('cloudModeError').textContent='';$('cloudModeInfo').textContent=p.data.project.name+' · '+(p.cloud?.enabled?'облачный':'локальный')+' проект';$('cloudModeDialog').showModal()};
  $('cloudModeClose').onclick=()=>$('cloudModeDialog').close();
@@ -142,20 +145,20 @@
     const remote=await activeClient.read(record.id);if(epoch!==generation||!app.canWrite())return;if(!remote||remote.deleted)continue;app.validate(remote.data);vault=app.getVault();if(vault.projects.some(p=>p.cloud?.owner===activeClient.owner&&p.cloud.id===record.id))continue;vault.projects.push({id:'project-'+crypto.randomUUID(),data:copy(remote.data),cloud:{owner:activeClient.owner,provider:config.provider,id:record.id,revision:remote.revision,base:copy(remote.data),enabled:true}});app.saveVault(vault);
    }
    delay=1500;const pending=app.getVault().projects.some(p=>p.cloud?.enabled&&p.cloud.owner===owner()&&!same(p.data,p.cloud.base));setStatus(conflicts.size?'Есть конфликт изменений. Нажмите для выбора версии.':pending?'Изменения ожидают отправки.':'Синхронизировано.',conflicts.size?'conflict':pending?'pending':'synced');
-  }catch(error){if(error.status===401)client=null;delay=Math.min(Math.max(delay*2,3000),120000);setStatus((error.status===401?'Нужен повторный вход. ':!navigator.onLine?'Нет сети. ':'Ошибка синхронизации. ')+error.message,error.status===401?'auth':'error')}
+  }catch(error){if(epoch!==generation)return;if(error.status===401)client=null;delay=Math.min(Math.max(delay*2,3000),120000);setStatus((error.status===401?'Нужен повторный вход. ':!navigator.onLine?'Нет сети. ':'Ошибка синхронизации. ')+error.message,error.status===401?'auth':'error')}
   finally{busy=false;if(client&&!paused&&epoch===generation){clearTimeout(timer);const vault=app.getVault(),pending=vault.projects.some(p=>p.cloud?.enabled&&p.cloud.owner===owner()&&!same(p.data,p.cloud.base))||(vault.cloudDeletions||[]).some(p=>p.cloud.owner===owner());timer=setTimeout(sync,conflicts.size?30000:pending?delay:Math.max(delay,15000))}}
  }
  window.roadmapCloud={beforeWrite,onVaultChange:notify,paint,projectSettings,isBusy:()=>busy,pauseForUpdate(){paused=true;clearTimeout(timer)},resume(){paused=false;notify()}};
  window.addEventListener('online',()=>{delay=100;notify()});window.addEventListener('offline',()=>setStatus(client?'Нет сети. Изменения сохранены на устройстве.':'Локальный режим',client?'offline':'local'));
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){delay=100;notify()}});
  for(const id of ['projectDialog','taskDialog','releaseDialog','trackDialog'])$(id).addEventListener('close',notify);
- window.RoadmapRecovery?.init({settings,showAccount});
+ window.RoadmapRecovery?.init({settings,showAccount,getClient:()=>config?.provider==='supabase'?client:null});
  window.RoadmapIntegrations?.init({app,getClient:()=>config?.provider==='supabase'?client:null,getGeneration:()=>generation,showAccount});
  fields();
  try{
   const raw=localStorage.getItem(key)||sessionStorage.getItem(key);if(raw){const saved=JSON.parse(raw);$('cloudProvider').value=saved.provider;$('cloudRemember').checked=!!saved.remember;
-   if(saved.provider==='github'){$('cloudRepo').value=saved.repo;$('cloudBranch').value=saved.branch;$('cloudEncrypt').checked=!!saved.encrypt;if(saved.encrypt){$('cloudToken').value=saved.token;setStatus('Введите ключ, чтобы возобновить синхронизацию GitHub.','auth')}else{config=saved;client=new S.GitHub(saved);notify()}}
-   else if(saved.provider==='supabase'){config=saved;client=new S.Supabase(saved,storeSession);notify()}
+   if(saved.provider==='github'){$('cloudRepo').value=saved.repo;$('cloudBranch').value=saved.branch;$('cloudEncrypt').checked=!!saved.encrypt;if(saved.encrypt){$('cloudToken').value=saved.token;setStatus('Введите ключ, чтобы возобновить синхронизацию GitHub.','auth')}else{config=saved;client=new S.GitHub(saved);setStatus('Ожидание синхронизации.','pending');notify()}}
+   else if(saved.provider==='supabase'){config=saved;const sessionEpoch=generation;client=new S.Supabase(saved,value=>{if(sessionEpoch===generation)storeSession(value)});setStatus('Ожидание синхронизации.','pending');notify()}
   }
  }catch{setStatus('Не удалось восстановить подключение. Войдите заново.','auth')}
  paint();

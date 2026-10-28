@@ -377,6 +377,7 @@ async function recoveryDevice(fragment = '', options = {}) {
     calls.push({ path: url.pathname, query: url.search, method: request.method(), body: request.postDataJSON(), authorization: request.headers().authorization, pageURL: page.url() });
     if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: [] });
     if (url.pathname === '/auth/v1/recover') return route.fulfill({ status: state.recoverStatus, json: state.recoverStatus === 200 ? {} : { msg: 'rate limit' } });
+    if (url.pathname === '/auth/v1/token') { if (state.refreshGate) await state.refreshGate; return route.fulfill({ json: { access_token: 'late-access', refresh_token: 'late-refresh', expires_in: 3600, user: { id: 'existing-user', email: 'signed@example.org' } } }); }
     if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
     if (url.pathname === '/auth/v1/user') {
       if (request.method() === 'GET' && state.verifyGate) await state.verifyGate;
@@ -599,4 +600,68 @@ test('read-only tabs can browse projects and independent view writes do not over
   const views = await first.evaluate(ids => ids.map(id => JSON.parse(localStorage.getItem(viewStorageKey(id))).search), ids);
   assert.deepEqual(views, ['First view', 'Second view']);
   assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).active), ids[0]);
+});
+
+function signedInSession() { return { provider: 'supabase', url: 'https://klsxfhettffjbnmuxivg.supabase.co', key: 'sb_publishable_saved', token: 'existing-access', refresh: 'existing-refresh', user: { id: 'existing-user', email: 'signed@example.org' }, label: 'signed@example.org', expires: Date.now() + 3600000, remember: true }; }
+async function openAccount(page) { await page.evaluate(() => document.querySelector('.menu-panel').parentElement.open = true); await page.getByRole('button', { name: 'Аккаунт', exact: true }).click(); }
+
+test('signed-in account exposes password actions without opening a different connection', async () => {
+  const { page } = await recoveryDevice('', { savedSession: signedInSession() });
+  await openAccount(page);
+  assert.equal(await page.locator('#cloudLogin').isVisible(), false);
+  assert.doesNotMatch(await page.locator('#cloudAccountState').textContent(), /Локальный режим/);
+  assert.equal(await page.locator('#cloudForgotPassword').isVisible(), true);
+  assert.equal(await page.locator('#cloudChangePassword').isVisible(), true);
+  await page.screenshot({ path: join(root, 'tmp_files/account-actions-mobile.png') });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.screenshot({ path: join(root, 'tmp_files/account-actions-desktop.png') });
+  await page.locator('#cloudForgotPassword').click();
+  assert.equal(await page.locator('#recoveryEmail').inputValue(), 'signed@example.org');
+});
+
+test('signout requires confirmation and cancellation preserves connection and projects', async () => {
+  const session = signedInSession(); const { page } = await recoveryDevice('', { savedSession: session });
+  const before = await vault(page);await openAccount(page);await page.locator('#cloudDisconnect').click();
+  assert.equal(await page.locator('#cloudSignoutDialog').isVisible(), true);
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/'))), session);
+  await page.locator('#cloudSignoutCancel').click();
+  assert.equal(await page.locator('#cloudAccount').isVisible(), true);
+  assert.deepEqual(await vault(page), before);
+  await page.locator('#cloudDisconnect').click();await page.locator('#cloudSignoutConfirm').click();
+  assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-cloud:/ROADMAPler/')), null);
+  assert.deepEqual(await vault(page), before);
+});
+
+test('signed-in password change uses current account and never logs it out on cancel or success', async () => {
+  const session = signedInSession();const { page, calls } = await recoveryDevice('', { savedSession: session });
+  await openAccount(page);await page.locator('#cloudChangePassword').click();
+  assert.equal(await page.locator('#recoveryPasswordForm').isVisible(), true);
+  await page.locator('#recoveryClose').click();
+  assert.equal(calls.filter(c => c.path === '/auth/v1/logout').length, 0);
+  await openAccount(page);await page.locator('#cloudChangePassword').click();
+  await page.locator('#recoveryPassword').fill('New-account-password');await page.locator('#recoveryPasswordAgain').fill('New-account-password');await page.locator('#recoverySave').click();
+  await page.locator('#recoveryLogin').waitFor({ state: 'visible' });
+  assert.equal(calls.find(c => c.method === 'PUT').authorization, 'Bearer existing-access');
+  assert.equal(calls.filter(c => c.path === '/auth/v1/logout').length, 0);
+  assert.equal(calls.filter(c => c.path === '/auth/v1/recover').length, 0);
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/'))), session);
+});
+
+
+test('signout is not undone by an in-flight session refresh', async () => {
+  let release;const refreshGate = new Promise(resolve => { release = resolve; });
+  const session = signedInSession();session.expires = Date.now() - 1;
+  const { page, calls } = await recoveryDevice('', { savedSession: session, refreshGate });
+  try {
+    const refreshStarted = page.waitForRequest(request => request.url().includes('/auth/v1/token'));
+    await openAccount(page);await refreshStarted;
+    await page.locator('#cloudDisconnect').click();await page.locator('#cloudSignoutConfirm').click();
+    assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-cloud:/ROADMAPler/')), null);
+    const loggedOut = page.waitForResponse(response => response.url().includes('/auth/v1/logout'));
+    release();await loggedOut;
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-cloud:/ROADMAPler/')), null);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('roadmapler-cloud:/ROADMAPler/')), null);
+    assert.equal(calls.find(c => c.path === '/auth/v1/logout').authorization, 'Bearer late-access');
+  } finally { release(); }
 });
