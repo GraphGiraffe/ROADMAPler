@@ -1,5 +1,7 @@
 import { cp, mkdir, rm, writeFile, readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildAgentPackage } from './agent-package.mjs';
 
 // Resolve against this script so the output never depends on the working directory.
@@ -18,7 +20,17 @@ if (config.supabaseKey) {
 }
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-await cp(source, output, { recursive: true });
+await cp(source, output, { recursive: true, filter: path => !['source','styles'].includes(relative(fileURLToPath(source),path).split(sep)[0]) });
+// Compose one classic script to preserve existing command/history semantics and portable HTML.
+const composition = JSON.parse(await readFile(new URL('source/manifest.json', source), 'utf8'));
+const loadParts = async (names, directory) => {
+  if (!Array.isArray(names) || !names.length || names.some(name => !/^[a-z-]+\.(js|css)$/.test(name))) throw Error('Invalid application composition');
+  return (await Promise.all(names.map(name => readFile(new URL(directory + '/' + name, source), 'utf8')))).join('\n');
+};
+const appCode = await loadParts(composition.scripts, 'source'), appStyle = await loadParts(composition.styles, 'styles');
+const template = await readFile(new URL('index.html', source), 'utf8');
+for (const marker of ['/*__ROADMAP_APP__*/','/*__ROADMAP_STYLE__*/']) if (template.split(marker).length !== 2) throw Error('Invalid application template');
+await writeFile(new URL('index.html', output), template.replace('/*__ROADMAP_APP__*/', () => appCode).replace('/*__ROADMAP_STYLE__*/', () => appStyle));
 async function hashDirectory(directory, hash) {
   for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name, 'en'))) {
     hash.update(entry.name);

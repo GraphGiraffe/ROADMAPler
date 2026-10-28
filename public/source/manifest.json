@@ -1,0 +1,15 @@
+{
+  "scripts": [
+    "write-guard.js",
+    "core.js",
+    "board.js",
+    "editors.js",
+    "exchange.js",
+    "controls.js",
+    "vault.js",
+    "lifecycle.js"
+  ],
+  "styles": [
+    "app.css"
+  ]
+}
