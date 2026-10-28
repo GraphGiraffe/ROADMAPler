@@ -1,7 +1,7 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, extname } from 'node:path';
@@ -16,7 +16,7 @@ const contexts = new Set();
 before(async () => {
   server = createServer(async (request, response) => {
     try {
-      const relative = decodeURIComponent(new URL(request.url, 'http://local').pathname).replace(/^\/ROADMAPler\//, '') || 'index.html';
+      const relative = decodeURIComponent(new URL(request.url, 'http://local').pathname).replace(/^\/(?:ROADMAPler|SECOND)\//, '') || 'index.html';
       const path = resolve(root, 'site', relative);
       if (!path.startsWith(resolve(root, 'site') + '/')) throw Error('Invalid path');
       const types = { '.html': 'text/html', '.js': 'application/javascript', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml' };
@@ -41,7 +41,7 @@ async function device(serviceWorkers = 'block') {
   contexts.add(context);
   const page = await context.newPage();
   await page.goto(origin);
-  await page.waitForFunction(() => window.roadmapApp && window.roadmapCloud);
+  await page.waitForFunction(() => window.roadmapApp && window.roadmapCloud && window.roadmapApp.canWrite());
   return { context, page };
 }
 async function vault(page) { return page.evaluate(() => window.roadmapApp.getVault()); }
@@ -491,4 +491,112 @@ test('closing recovery while checking a link discards late results and never ret
     assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
     assert.equal((await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).includes(token), false);
   } finally { release(); }
+});
+
+
+test('large-board measurement: search coalesces rendering and avoids vault serialization', async () => {
+  const { page } = await device();
+  const measurements = [];
+  for (const count of [200, 1000]) {
+    await page.evaluate(count => {
+      const next = window.roadmapApp.getVault(), data = next.projects[0].data;
+      data.formatVersion = 2;
+      data.tracks = Array.from({ length: 6 }, (_, i) => ({ id: 'track-' + i, title: 'Track ' + i }));
+      data.releases = Array.from({ length: 8 }, (_, i) => ({ id: 'release-' + i, title: 'Release ' + i }));
+      data.tasks = Array.from({ length: count }, (_, i) => ({ id: 'card-' + i, title: 'Card ' + i, description: 'Details '.repeat(20), status: 'planned', track: 'track-' + (i % 6), release: 'release-' + (i % 8) }));
+      window.roadmapApp.saveVault(next);
+      document.getElementById('search').value = '';
+      document.getElementById('search').dispatchEvent(new Event('input'));
+    }, count);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 400)));
+    measurements.push(await page.evaluate(async count => {
+      let vaultSerializations = 0, viewWrites = 0, projectWrites = 0, renders = 0;
+      const stringify = JSON.stringify, setItem = Storage.prototype.setItem, replace = Element.prototype.replaceChildren;
+      JSON.stringify = function(value, ...args) { if (value?.projects?.some?.(p => p?.data?.format === 'roadmap-project')) vaultSerializations++; return stringify.call(this, value, ...args); };
+      Storage.prototype.setItem = function(key, value) { if (key.startsWith('roadmapler-project-views:')) viewWrites++; if (key.startsWith('roadmapler-projects:')) projectWrites++; return setItem.call(this, key, value); };
+      Element.prototype.replaceChildren = function(...args) { if (this.id === 'board') renders++; return replace.apply(this, args); };
+      try {
+        const started = performance.now(), search = document.getElementById('search');
+        for (const query of ['C', 'Ca', 'Car', 'Card', 'Card ', 'Card 9', 'Card ', 'Card 2', 'Card ', 'Card 1']) { search.value = query; search.dispatchEvent(new Event('input')); }
+        const dispatchMs = performance.now() - started;
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return { cards: count, inputEvents: 10, dispatchMs: +dispatchMs.toFixed(2), renders, viewWrites, vaultSerializations, projectWrites, displayedCards: document.querySelectorAll('.card').length };
+      } finally { JSON.stringify = stringify; Storage.prototype.setItem = setItem; Element.prototype.replaceChildren = replace; }
+    }, count));
+  }
+  await mkdir(join(root, 'tmp_files'), { recursive: true });
+  const phase = process.env.ROADMAP_BENCH_BASELINE === '1' ? 'before' : 'after';
+  await writeFile(join(root, 'tmp_files', 'board-performance-' + phase + '.json'), JSON.stringify(measurements, null, 2) + '\n');
+  console.log('Large-board measurement:', JSON.stringify(measurements));
+  if (phase === 'after') for (const result of measurements) { assert.equal(result.projectWrites, 0); assert.equal(result.vaultSerializations, 0); assert.ok(result.renders <= 1); assert.ok(result.viewWrites <= 1); assert.ok(result.displayedCards > 0); }
+});
+
+test('two tabs serialize project writes; promotion never overwrites a stale snapshot', async () => {
+  const { context, page: first } = await device();
+  const second = await context.newPage(); await second.goto(origin); await second.waitForFunction(() => window.roadmapApp);
+  assert.equal(await second.evaluate(() => window.roadmapApp.canWrite()), false);
+  const result = await Promise.all([
+    first.evaluate(() => change(() => { state.project.description = 'First tab'; })),
+    second.evaluate(() => change(() => { state.project.description = 'Second tab'; }))
+  ]);
+  assert.deepEqual(result, [true, false]);
+  await second.waitForFunction(() => vaultStale);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).projects[0].data.project.description), 'First tab');
+  await first.close();
+  await second.waitForFunction(() => writeGuard.canWrite());
+  assert.equal(await second.evaluate(() => window.roadmapApp.canWrite()), false);
+  assert.equal(await second.evaluate(() => change(() => { state.project.description = 'Stale write'; })), false);
+  await second.reload(); await second.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal((await vault(second)).projects[0].data.project.description, 'First tab');
+  assert.equal(await second.evaluate(() => change(() => { state.project.description = 'Fresh second tab'; })), true);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).projects[0].data.project.description), 'Fresh second tab');
+});
+
+test('write ownership is scoped to the application path', async () => {
+  const { context, page: first } = await device();
+  const second = await context.newPage(); await second.goto(origin.replace('/ROADMAPler/', '/SECOND/')); await second.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await first.evaluate(() => change(() => { state.project.name = 'First scope'; })), true);
+  assert.equal(await second.evaluate(() => change(() => { state.project.name = 'Second scope'; })), true);
+  assert.equal((await vault(first)).projects[0].data.project.name, 'First scope');
+  assert.equal((await vault(second)).projects[0].data.project.name, 'Second scope');
+});
+
+test('unsupported locks keep data readable and exportable without unsafe writes', async () => {
+  const context = await browser.newContext({ acceptDownloads: true, serviceWorkers: 'block' });contexts.add(context);
+  await context.addInitScript(() => Object.defineProperty(navigator, 'locks', { value: undefined }));
+  const page = await context.newPage();await page.goto(origin);await page.waitForFunction(() => window.roadmapApp);
+  const before = await vault(page);
+  assert.equal(await page.evaluate(() => window.roadmapApp.canWrite()), false);
+  assert.equal(await page.evaluate(() => change(() => { state.project.description = 'Unsafe write'; })), false);
+  assert.deepEqual(await vault(page), before);
+  assert.equal(await page.evaluate(() => localStorage.getItem(vaultKey)), null);
+  const download = page.waitForEvent('download');await page.evaluate(() => document.getElementById('exportProject').click());
+  assert.equal((await download).suggestedFilename(), 'project.roadmap.json');
+});
+
+test('project views migrate without deleting legacy data and flush on immediate reload', async () => {
+  const context = await browser.newContext({ serviceWorkers: 'block' });contexts.add(context);
+  const legacy = JSON.stringify({ version: 1, projects: [['initial', { search: 'legacy', showDone: false, showDoneReleases: false }]] });
+  await context.addInitScript(raw => { if (!localStorage.getItem('roadmapler-project-views:/ROADMAPler/')) localStorage.setItem('roadmapler-project-views:/ROADMAPler/', raw); }, legacy);
+  const page = await context.newPage();await page.goto(origin);await page.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await page.locator('#search').inputValue(), 'legacy');
+  await page.locator('#search').fill('latest input');
+  await page.reload();await page.waitForFunction(() => window.roadmapApp?.canWrite());
+  assert.equal(await page.locator('#search').inputValue(), 'latest input');
+  assert.equal(await page.locator('#showDone').isChecked(), false);
+  assert.equal(await page.evaluate(() => localStorage.getItem('roadmapler-project-views:/ROADMAPler/')), legacy);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem(viewStorageKey(vault.active))).search), 'latest input');
+});
+
+test('read-only tabs can browse projects and independent view writes do not overwrite each other', async () => {
+  const { context, page: first } = await device();
+  const ids = await first.evaluate(() => { const next = window.roadmapApp.getVault();next.projects.push(window.roadmapApp.emptyProject());window.roadmapApp.saveVault(next);return next.projects.map(p => p.id); });
+  const second = await context.newPage();await second.goto(origin);await second.waitForFunction(() => window.roadmapApp);
+  await second.evaluate(id => switchProject(id), ids[1]);
+  assert.equal((await vault(second)).active, ids[1]);
+  await first.locator('#search').fill('First view');await second.locator('#search').fill('Second view');
+  await first.evaluate(() => flushProjectViews());await second.evaluate(() => flushProjectViews());
+  const views = await first.evaluate(ids => ids.map(id => JSON.parse(localStorage.getItem(viewStorageKey(id))).search), ids);
+  assert.deepEqual(views, ['First view', 'Second view']);
+  assert.equal(await second.evaluate(() => JSON.parse(localStorage.getItem(vaultKey)).active), ids[0]);
 });

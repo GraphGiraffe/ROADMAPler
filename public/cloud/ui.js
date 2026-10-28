@@ -86,15 +86,16 @@
  function showConflict(){const item=conflicts.values().next().value;if(!item)return;$('cloudConflictInfo').textContent='Проект «'+item.local.data.project.name+'» изменён на другом устройстве'+(item.remote?.deleted?' или удалён там.':'.');$('cloudConflictError').textContent='';$('cloudConflict').showModal()}
  $('cloudConflictClose').onclick=()=>$('cloudConflict').close();
  async function resolve(mine){
+  if(!app.canWrite()){$('cloudConflictError').textContent='Разрешите конфликт во вкладке с правом записи.';return}
   const item=conflicts.values().next().value;if(!item)return;const activeClient=client,epoch=generation;if(busy){$('cloudConflictError').textContent='Дождитесь завершения обмена.';return}busy=true;
   try{
    let vault=app.getVault(),current=item.deletion?vault.cloudDeletions?.find(x=>x.id===item.local.id):vault.projects.find(x=>x.id===item.local.id);if(!current||!same(current.data,item.local.data))throw Error('Локальная версия изменилась. Закройте окно и повторите синхронизацию.');
-   const latest=await activeClient.read(current.cloud.id);if(epoch!==generation)throw Error('Подключение изменилось.');vault=app.getVault();const live=item.deletion?vault.cloudDeletions?.find(x=>x.id===current.id):vault.projects.find(x=>x.id===current.id);if(!live||!same(live.data,current.data))throw Error('Локальная версия изменилась. Повторите синхронизацию.');if(!same(latest,item.remote))throw Error('Облачная версия снова изменилась. Повторите синхронизацию.');
+   const latest=await activeClient.read(current.cloud.id);if(epoch!==generation||!app.canWrite())throw Error('Подключение или право записи изменилось.');vault=app.getVault();const live=item.deletion?vault.cloudDeletions?.find(x=>x.id===current.id):vault.projects.find(x=>x.id===current.id);if(!live||!same(live.data,current.data))throw Error('Локальная версия изменилась. Повторите синхронизацию.');if(!same(latest,item.remote))throw Error('Облачная версия снова изменилась. Повторите синхронизацию.');
    if(mine){
     // Save a local safety copy before attempting a remote overwrite.
     localCopy(vault,latest?.data,'облачная копия перед разрешением конфликта');app.saveVault(vault);
     const result=await activeClient.write(current.cloud.id,latest?.revision||null,current.data,item.deletion);
-    if(epoch!==generation)return;vault=app.getVault();if(item.deletion)vault.cloudDeletions=vault.cloudDeletions.filter(x=>x.id!==current.id);else{const target=vault.projects.find(x=>x.id===current.id);if(target){target.cloud.revision=result.revision;target.cloud.base=copy(current.data)}}
+    if(epoch!==generation||!app.canWrite())return;vault=app.getVault();if(item.deletion)vault.cloudDeletions=vault.cloudDeletions.filter(x=>x.id!==current.id);else{const target=vault.projects.find(x=>x.id===current.id);if(target){target.cloud.revision=result.revision;target.cloud.base=copy(current.data)}}
    }else{
     localCopy(vault,current.data,'локальная копия');
     if(item.deletion)vault.cloudDeletions=vault.cloudDeletions.filter(x=>x.id!==current.id);
@@ -105,21 +106,22 @@
  }
  $('cloudKeepBoth').onclick=()=>resolve(false);$('cloudKeepMine').onclick=()=>resolve(true);
  async function sync(){
+  if(!app.canWrite()){setStatus('Синхронизация доступна во вкладке с правом записи.','readonly');return}
   if(!client||busy||paused)return;if(document.hidden){timer=setTimeout(sync,30000);return}
   if(!navigator.onLine){setStatus('Нет сети. Изменения сохранены на устройстве.','offline');timer=setTimeout(sync,30000);return}
   const activeClient=client,epoch=generation;busy=true;setStatus('Синхронизация…','syncing');
   try{
-   const list=await activeClient.list();if(epoch!==generation)return;const lookup=new Map(list.map(r=>[r.id,r]));
+   const list=await activeClient.list();if(epoch!==generation||!app.canWrite())return;const lookup=new Map(list.map(r=>[r.id,r]));
    // Deletions are durable and version checked just like edits.
-   for(const removed of app.getVault().cloudDeletions||[]){if(removed.cloud.owner!==activeClient.owner)continue;const record=lookup.get(removed.cloud.id),remote=record?await activeClient.read(removed.cloud.id):null;if(epoch!==generation)return;
+   for(const removed of app.getVault().cloudDeletions||[]){if(removed.cloud.owner!==activeClient.owner)continue;const record=lookup.get(removed.cloud.id),remote=record?await activeClient.read(removed.cloud.id):null;if(epoch!==generation||!app.canWrite())return;
     if(remote&&!remote.deleted&&remote.revision!==removed.cloud.revision){conflicts.set(removed.id,{local:removed,remote,deletion:true});continue}
-    if(!(app.getVault().cloudDeletions||[]).some(x=>x.id===removed.id))continue;if(remote&&!remote.deleted)await activeClient.write(removed.cloud.id,remote.revision,null,true);if(epoch!==generation)return;
+    if(!(app.getVault().cloudDeletions||[]).some(x=>x.id===removed.id))continue;if(remote&&!remote.deleted)await activeClient.write(removed.cloud.id,remote.revision,null,true);if(epoch!==generation||!app.canWrite())return;
     const vault=app.getVault();vault.cloudDeletions=(vault.cloudDeletions||[]).filter(x=>x.id!==removed.id);app.saveVault(vault);
    }
    for(const project of app.getVault().projects){
     if(!project.cloud?.enabled||project.cloud.owner!==activeClient.owner)continue;const head=lookup.get(project.cloud.id);
     const dirty=!same(project.data,project.cloud.base);if(head&&head.revision===project.cloud.revision&&!dirty){conflicts.delete(project.id);continue}
-    let remote=head?await activeClient.read(project.cloud.id):null;if(epoch!==generation)return;
+    let remote=head?await activeClient.read(project.cloud.id):null;if(epoch!==generation||!app.canWrite())return;
     if(remote&&!remote.deleted)app.validate(remote.data);
     const action=S.plan(project.data,project.cloud.base,remote);
     if(action==='conflict'){conflicts.set(project.id,{local:project,remote});continue}
@@ -129,7 +131,7 @@
      const live=app.getVault().projects.find(p=>p.id===project.id);if(!live?.cloud?.enabled||live.cloud.owner!==activeClient.owner||!same(live.data,project.data))continue;
      try{result=await activeClient.write(project.cloud.id,remote?.revision||null,project.data)}catch(error){if(error.status===409||error.status===422){const latest=await activeClient.read(project.cloud.id);conflicts.set(project.id,{local:project,remote:latest});continue}throw error}
     }
-    if(epoch!==generation)return;const vault=app.getVault(),current=vault.projects.find(x=>x.id===project.id);if(!current||current.cloud?.owner!==activeClient.owner||!current.cloud.enabled)continue;
+    if(epoch!==generation||!app.canWrite())return;const vault=app.getVault(),current=vault.projects.find(x=>x.id===project.id);if(!current||current.cloud?.owner!==activeClient.owner||!current.cloud.enabled)continue;
     // User edits made while an HTTP request was in flight always win locally.
     if(!same(current.data,project.data)){if(action==='upload'||action==='ack'){current.cloud.revision=result.revision;current.cloud.base=copy(project.data);app.saveVault(vault)}continue}
     if(action==='remove'){vault.projects=vault.projects.filter(x=>x.id!==project.id);ensureNotEmpty(vault)}else{current.data=copy(result.data);current.cloud.revision=result.revision;current.cloud.base=copy(result.data)}
@@ -137,7 +139,7 @@
    }
    // Discover projects created on another device; detached local copies are not reattached.
    for(const record of list){let vault=app.getVault();if(vault.projects.some(p=>p.cloud?.owner===activeClient.owner&&p.cloud.id===record.id)||(vault.cloudDeletions||[]).some(p=>p.cloud.owner===activeClient.owner&&p.cloud.id===record.id))continue;
-    const remote=await activeClient.read(record.id);if(epoch!==generation)return;if(!remote||remote.deleted)continue;app.validate(remote.data);vault=app.getVault();if(vault.projects.some(p=>p.cloud?.owner===activeClient.owner&&p.cloud.id===record.id))continue;vault.projects.push({id:'project-'+crypto.randomUUID(),data:copy(remote.data),cloud:{owner:activeClient.owner,provider:config.provider,id:record.id,revision:remote.revision,base:copy(remote.data),enabled:true}});app.saveVault(vault);
+    const remote=await activeClient.read(record.id);if(epoch!==generation||!app.canWrite())return;if(!remote||remote.deleted)continue;app.validate(remote.data);vault=app.getVault();if(vault.projects.some(p=>p.cloud?.owner===activeClient.owner&&p.cloud.id===record.id))continue;vault.projects.push({id:'project-'+crypto.randomUUID(),data:copy(remote.data),cloud:{owner:activeClient.owner,provider:config.provider,id:record.id,revision:remote.revision,base:copy(remote.data),enabled:true}});app.saveVault(vault);
    }
    delay=1500;const pending=app.getVault().projects.some(p=>p.cloud?.enabled&&p.cloud.owner===owner()&&!same(p.data,p.cloud.base));setStatus(conflicts.size?'Есть конфликт изменений. Нажмите для выбора версии.':pending?'Изменения ожидают отправки.':'Синхронизировано.',conflicts.size?'conflict':pending?'pending':'synced');
   }catch(error){if(error.status===401)client=null;delay=Math.min(Math.max(delay*2,3000),120000);setStatus((error.status===401?'Нужен повторный вход. ':!navigator.onLine?'Нет сети. ':'Ошибка синхронизации. ')+error.message,error.status===401?'auth':'error')}
