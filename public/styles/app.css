@@ -2324,3 +2324,10 @@ dialog label{
   flex:none;
   width:20px;
   height:20px}
+
+/* Account actions stay outside the collapsible login form. */
+#cloudAccount .account-section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+#cloudAccount .account-section h3{margin:0 0 8px;font-size:14px}
+#cloudAccount .actions{gap:8px;justify-content:flex-start}
+#cloudAccount>.actions{border-top:1px solid var(--line);padding-top:12px;margin-top:16px}
+#cloudAccountState{overflow-wrap:anywhere}
