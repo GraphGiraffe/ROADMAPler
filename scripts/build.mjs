@@ -1,5 +1,6 @@
 import { cp, mkdir, rm, writeFile, readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { buildAgentPackage } from './agent-package.mjs';
 
 // Resolve against this script so the output never depends on the working directory.
 const source = new URL('../public/', import.meta.url);
@@ -26,8 +27,9 @@ async function hashDirectory(directory, hash) {
     else hash.update(await readFile(file));
   }
 }
+await buildAgentPackage(new URL('api/agent-plugin/', output));
 const hash = createHash('sha256');
-await hashDirectory(source, hash);
+await hashDirectory(output, hash);
 const revision = hash.digest('hex').slice(0, 16);
 const worker = new URL('sw.js', output);
 await writeFile(worker, (await readFile(worker, 'utf8')).replace('__BUILD_REVISION__', revision));

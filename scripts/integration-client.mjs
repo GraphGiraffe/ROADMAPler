@@ -73,10 +73,10 @@ Tokens are read only from a protected credentials file. Conflicts are never retr
  }else if(action==='changes'){endpoint='roadmap_integration_changes';body={p_project_id:id,p_since:integer('--since',0,Number.MAX_SAFE_INTEGER)}}
  const response=await fetch(url.href.replace(/\/$/,'')+'/rest/v1/rpc/'+endpoint,{method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000),headers:{apikey:publishableKey,'X-ROADMAPler-Token':token,'Content-Type':'application/json'},body:JSON.stringify(body)});
  let result;try{result=await response.json()}catch{throw Error('Сервер вернул неподдерживаемый ответ.')}
- if(!response.ok){const message=response.status===409?'Конфликт версий: заново прочитайте проект и согласуйте изменения. Повторной записи не было.':result?.message||'Ошибка API '+response.status;throw Error(String(message).replaceAll(token,'[token]'))}
+ if(!response.ok){const message=response.status===409?'Конфликт версий: заново прочитайте проект и согласуйте изменения. Повторной записи не было.':result?.message||'Ошибка API '+response.status;throw Object.assign(Error(String(message).replaceAll(token,'[token]')),{status:response.status,code:result?.code})}
  const record=Array.isArray(result)?result[0]:result;if(!record||record.id!==id||!Number.isSafeInteger(Number(record.revision)))throw Error('Некорректный ответ API.');
- const text=JSON.stringify(record,null,2)+'\n';
+ const text=JSON.stringify(record,null,2).replaceAll(token,'[token]')+'\n';
  if(options['--out'])await writeFile(options['--out'],text,{mode:0o600,flag:'wx'});else io.stdout.write(text);
- return record;
+ return JSON.parse(text);
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1])run(process.argv.slice(2)).catch(error=>{process.stderr.write(error.message+'\n');process.exitCode=1});
