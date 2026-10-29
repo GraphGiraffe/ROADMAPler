@@ -21,6 +21,9 @@ if (config.supabaseKey) {
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true, filter: path => !['source','styles'].includes(relative(fileURLToPath(source),path).split(sep)[0]) });
+// Both theme variants share the same installation identity and relative URLs.
+const manifest = JSON.parse(await readFile(new URL('manifest.webmanifest', source), 'utf8'));
+await writeFile(new URL('manifest-dark.webmanifest', output), JSON.stringify({...manifest, background_color:'#1c2922', theme_color:'#1c2922'}, null, 2)+'\n');
 // Compose one classic script to preserve existing command/history semantics and portable HTML.
 const composition = JSON.parse(await readFile(new URL('source/manifest.json', source), 'utf8'));
 const loadParts = async (names, directory) => {

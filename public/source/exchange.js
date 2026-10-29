@@ -1,7 +1,6 @@
 const themeKey='roadmap-theme';
-function setTheme(theme){document.documentElement.dataset.theme=theme;const themeColor=document.querySelector('meta[name="theme-color"]');if(themeColor)themeColor.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();$('themeToggle').innerHTML=toolIcon(theme==='dark'?'sun':'moon');$('themeToggle').title=theme==='dark'?'Включить светлую тему':'Включить тёмную тему';$('themeToggle').setAttribute('aria-label',theme==='dark'?'Включить светлую тему':'Включить тёмную тему');$('themeToggle').setAttribute('aria-pressed',String(theme==='dark'))}
-let savedTheme;try{savedTheme=localStorage.getItem(themeKey)}catch{}
-setTheme(['light','dark'].includes(savedTheme)?savedTheme:document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+function setTheme(theme){window.RoadmapTheme.apply(theme);$('themeToggle').innerHTML=toolIcon(theme==='dark'?'sun':'moon');$('themeToggle').title=theme==='dark'?'Включить светлую тему':'Включить тёмную тему';$('themeToggle').setAttribute('aria-label',theme==='dark'?'Включить светлую тему':'Включить тёмную тему');$('themeToggle').setAttribute('aria-pressed',String(theme==='dark'))}
+setTheme(document.documentElement.dataset.theme);
 $('themeToggle').onclick=()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';setTheme(theme);try{localStorage.setItem(themeKey,theme)}catch{}};
 function validateProject(value){return RoadmapProjectFormat.validateProject(value)}
 $('exportProject').onclick=()=>{const exported=clone(state);exported.project.updatedAt=new Date().toISOString();const blob=new Blob([JSON.stringify(exported,null,2)+'\n'],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='project.roadmap.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)};
