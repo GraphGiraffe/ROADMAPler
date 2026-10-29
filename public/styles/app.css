@@ -1,5 +1,6 @@
 /* Cascade order is intentional; responsive/theme overrides stay after their bases. */
 :root{
+  background:var(--bg);
   color-scheme:light;
   --bg:#f3f2ed;
   --paper:#fffef9;

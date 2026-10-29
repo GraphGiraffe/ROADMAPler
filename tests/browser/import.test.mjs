@@ -716,3 +716,51 @@ for (const choice of ['mine', 'cloud', 'both', 'deleted', 'stale']) {
     if (choice === 'both' || choice === 'deleted') { const saved = next.projects.find(p => p.id !== 'saved');assert.equal(saved.data.project.description, local.project.description);assert.equal(saved.cloud, undefined); }
   });
 }
+
+test('browser chrome follows the selected theme on toggle and reload', async () => {
+  const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light', viewport: { width: 390, height: 844 } });
+  contexts.add(context);
+  const page = await context.newPage();
+  await page.goto(origin);await page.waitForFunction(() => window.roadmapApp);
+  const chrome = () => page.evaluate(() => {
+    const color = document.querySelector('meta[name="theme-color"]').content;
+    const probe = document.createElement('span');probe.style.color = color;document.body.append(probe);
+    const actual = getComputedStyle(probe).color;probe.remove();
+    return { actual, expected: getComputedStyle(document.body).backgroundColor, theme: document.documentElement.dataset.theme };
+  });
+  for (const theme of ['dark', 'light']) {
+    await page.locator('#themeToggle').click();
+    let state = await chrome();assert.equal(state.theme, theme);assert.equal(state.actual, state.expected);
+    await page.reload();await page.waitForFunction(() => window.roadmapApp);
+    state = await chrome();assert.equal(state.theme, theme);assert.equal(state.actual, state.expected);
+  }
+  await page.evaluate(() => localStorage.removeItem('roadmap-theme'));
+  await page.emulateMedia({ colorScheme: 'dark' });await page.reload();await page.waitForFunction(() => window.roadmapApp);
+  const state = await chrome();assert.equal(state.theme, 'dark');assert.equal(state.actual, state.expected);
+});
+
+for (const [saved, system, expected] of [['dark','light','dark'], ['light','dark','light'], [null,'dark','dark']]) {
+  test(`theme is applied before application loads: saved ${saved}, system ${system}`, async () => {
+    const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: system });contexts.add(context);
+    if (saved) await context.addInitScript(theme => localStorage.setItem('roadmap-theme', theme), saved);
+    let resume;const gate = new Promise(resolve => resume = resolve);
+    await context.route('**/app/project-format.js', async route => { await gate;await route.continue(); });
+    const page = await context.newPage();
+    try {
+      await page.goto(origin, { waitUntil: 'commit' });
+      await page.waitForFunction(() => window.RoadmapTheme);
+      assert.equal(await page.evaluate(() => !!window.roadmapApp), false);
+      const early = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, color: document.querySelector('meta[name="theme-color"]').content, background: getComputedStyle(document.documentElement).backgroundColor, manifest: document.querySelector('link[rel="manifest"]').getAttribute('href') }));
+      assert.equal(early.theme, expected);assert.equal(early.color, expected === 'dark' ? '#1c2922' : '#f3f0e7');
+      assert.equal(early.background, expected === 'dark' ? 'rgb(28, 41, 34)' : 'rgb(243, 240, 231)');
+      assert.equal(early.manifest, expected === 'dark' ? './manifest-dark.webmanifest' : './manifest.webmanifest');
+      const light = await (await context.request.get(origin + 'manifest.webmanifest')).json();
+      const dark = await (await context.request.get(origin + 'manifest-dark.webmanifest')).json();
+      assert.equal(dark.background_color, '#1c2922');assert.equal(dark.theme_color, '#1c2922');
+      for (const field of ['id','start_url','scope','icons']) assert.deepEqual(dark[field], light[field]);
+    } finally { resume(); }
+    await page.waitForFunction(() => window.roadmapApp);
+    await page.locator('#themeToggle').click();
+    assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'), expected === 'dark' ? './manifest.webmanifest' : './manifest-dark.webmanifest');
+  });
+}
