@@ -17,7 +17,7 @@
  <section id="cloudSecurity" class="account-section"><h3>Пароль</h3><div id="cloudSecurityActions" class="actions"></div></section><section id="cloudSyncSection" class="account-section" hidden><h3>Синхронизация</h3><div class="actions"><button id="cloudRetry" type="button" hidden>Синхронизировать сейчас</button><button id="cloudResolve" type="button" hidden>Разобрать конфликт</button></div><p class="note">Локальный или облачный режим выбирается отдельно в настройках проекта.</p></section><div class="actions"><button id="cloudDisconnect" type="button" class="danger" hidden>Выйти из аккаунта</button><button id="cloudClose" type="button">Закрыть</button></div></dialog>
  <dialog id="cloudSignoutDialog" data-cloud aria-labelledby="cloudSignoutTitle"><h2 id="cloudSignoutTitle">Выйти из аккаунта?</h2><p id="cloudSignoutInfo"></p><div class="actions"><button id="cloudSignoutCancel" type="button">Отмена</button><button id="cloudSignoutConfirm" type="button" class="danger">Выйти</button></div></dialog>
  <dialog id="cloudModeDialog" data-cloud aria-labelledby="cloudModeTitle"><h2 id="cloudModeTitle">Режим проекта</h2><p id="cloudModeInfo"></p><p class="note">Локальный проект не отправляется на сервер. При отключении синхронизации уже созданная облачная копия остаётся в облаке.</p><p id="cloudModeError" class="field-error" role="status"></p><div class="actions"><button id="cloudMakeLocal" type="button">Локальный</button><button id="cloudMakeOnline" type="button" class="primary">Облачный</button><button id="cloudModeClose" type="button">Отмена</button></div></dialog>
- <dialog id="cloudConflict" data-cloud aria-labelledby="cloudConflictTitle"><h2 id="cloudConflictTitle">Изменения на двух устройствах</h2><p id="cloudConflictInfo"></p><p>«Сохранить обе» оставит облачную версию в проекте, а вашу — отдельной локальной копией. «Отправить мою» сохранит облачную версию локальной копией перед отправкой вашей.</p><p id="cloudConflictError" class="field-error" role="status"></p><div class="actions"><button id="cloudKeepBoth" type="button" class="primary">Сохранить обе</button><button id="cloudKeepMine" type="button">Отправить мою</button><button id="cloudConflictClose" type="button">Позже</button></div></dialog>
+ <dialog id="cloudConflict" data-cloud aria-labelledby="cloudConflictTitle"><h2 id="cloudConflictTitle">Что принять?</h2><p id="cloudConflictInfo"></p><div class="conflict-choices"><section><button id="cloudKeepMine" type="button">Мои</button><p id="cloudMineSummary" class="note"></p></section><section><button id="cloudKeepCloud" type="button">Облако</button><p id="cloudRemoteSummary" class="note"></p></section></div><button id="cloudKeepBoth" type="button" class="primary">Оба</button><p class="note">Облако — в текущий проект, мои — в отдельную локальную копию.</p><p id="cloudConflictError" class="field-error" role="status"></p><div class="actions"><button id="cloudConflictClose" type="button">Позже</button></div></dialog>
  <dialog id="cloudHistory" data-cloud aria-labelledby="cloudHistoryTitle"><h2 id="cloudHistoryTitle">Версии проекта</h2><p id="cloudHistoryInfo" role="status"></p><div id="cloudVersions"></div><div class="actions"><button id="cloudHistoryClose" type="button">Закрыть</button></div></dialog>`;
  document.querySelector('main').insertAdjacentHTML('beforeend',html);
  const accountButton=node('button','Аккаунт');accountButton.type='button';accountButton.dataset.cloud='';document.querySelector('.menu-panel').prepend(accountButton);
@@ -86,28 +86,39 @@
  function notify(){if(paused)return;if(!client){paint();return}clearTimeout(timer);timer=setTimeout(sync,delay);paint()}
  function localCopy(vault,data,suffix){if(!data)return;const id='project-'+crypto.randomUUID(),snapshot=copy(data);snapshot.project.name+=' — '+suffix;vault.projects.push({id,data:snapshot})}
  function ensureNotEmpty(vault){if(vault.projects.length){if(!vault.projects.some(p=>p.id===vault.active))vault.active=vault.projects[0].id;return}const p=app.emptyProject();vault.projects.push(p);vault.active=p.id}
- function showConflict(){const item=conflicts.values().next().value;if(!item)return;$('cloudConflictInfo').textContent='Проект «'+item.local.data.project.name+'» изменён на другом устройстве'+(item.remote?.deleted?' или удалён там.':'.');$('cloudConflictError').textContent='';$('cloudConflict').showModal()}
+ function conflictSummary(data,base,deleted){
+  if(deleted||!data)return 'Проект удалён.';
+  const parts=[];
+  if(!same(data.project,base?.project))parts.push('Изменены название или описание проекта');
+  for(const [key,label] of [['tasks','Карточки'],['tracks','Треки'],['releases','Релизы']]){
+   const before=new Map((base?.[key]||[]).map(x=>[x.id,x])),after=new Map((data[key]||[]).map(x=>[x.id,x]));
+   const added=[...after.keys()].filter(id=>!before.has(id)).length,removed=[...before.keys()].filter(id=>!after.has(id)).length,changed=[...after].filter(([id,value])=>before.has(id)&&!same(value,before.get(id)));
+   if(added||removed||changed.length)parts.push(label+': '+[added?'добавлено '+added:'',changed.length?'изменено '+changed.length:'',removed?'удалено '+removed:''].filter(Boolean).join(', ')+(changed.length?' ('+changed.slice(0,2).map(([,v])=>String(v.title||v.name||v.id).slice(0,60)).join(', ')+')':''));
+  }
+  return parts.join('. ')+(parts.length?'.':'Изменены другие параметры проекта.');
+ }
+ function showConflict(){const item=conflicts.values().next().value;if(!item)return;$('cloudConflictInfo').textContent='Проект «'+item.local.data.project.name+'». Изменения относительно последней общей версии:';$('cloudMineSummary').textContent=conflictSummary(item.local.data,item.local.cloud.base,item.deletion);$('cloudRemoteSummary').textContent=conflictSummary(item.remote?.data,item.local.cloud.base,item.remote?.deleted||!item.remote);$('cloudConflictError').textContent='';$('cloudConflict').showModal()}
  $('cloudConflictClose').onclick=()=>$('cloudConflict').close();
- async function resolve(mine){
+ async function resolve(choice){
   if(!app.canWrite()){$('cloudConflictError').textContent='Разрешите конфликт во вкладке с правом записи.';return}
   const item=conflicts.values().next().value;if(!item)return;const activeClient=client,epoch=generation;if(busy){$('cloudConflictError').textContent='Дождитесь завершения обмена.';return}busy=true;
   try{
    let vault=app.getVault(),current=item.deletion?vault.cloudDeletions?.find(x=>x.id===item.local.id):vault.projects.find(x=>x.id===item.local.id);if(!current||!same(current.data,item.local.data))throw Error('Локальная версия изменилась. Закройте окно и повторите синхронизацию.');
    const latest=await activeClient.read(current.cloud.id);if(epoch!==generation||!app.canWrite())throw Error('Подключение или право записи изменилось.');vault=app.getVault();const live=item.deletion?vault.cloudDeletions?.find(x=>x.id===current.id):vault.projects.find(x=>x.id===current.id);if(!live||!same(live.data,current.data))throw Error('Локальная версия изменилась. Повторите синхронизацию.');if(!same(latest,item.remote))throw Error('Облачная версия снова изменилась. Повторите синхронизацию.');
-   if(mine){
+   if(choice==='mine'){
     // Save a local safety copy before attempting a remote overwrite.
     localCopy(vault,latest?.data,'облачная копия перед разрешением конфликта');app.saveVault(vault);
     const result=await activeClient.write(current.cloud.id,latest?.revision||null,current.data,item.deletion);
     if(epoch!==generation||!app.canWrite())return;vault=app.getVault();if(item.deletion)vault.cloudDeletions=vault.cloudDeletions.filter(x=>x.id!==current.id);else{const target=vault.projects.find(x=>x.id===current.id);if(target){target.cloud.revision=result.revision;target.cloud.base=copy(current.data)}}
    }else{
-    localCopy(vault,current.data,'локальная копия');
+    if(choice==='both')localCopy(vault,current.data,'локальная копия');
     if(item.deletion)vault.cloudDeletions=vault.cloudDeletions.filter(x=>x.id!==current.id);
     if(latest&&!latest.deleted){app.validate(latest.data);let target=vault.projects.find(x=>x.id===current.id);if(!target){target={id:current.id};vault.projects.push(target)}target.data=copy(latest.data);target.cloud={...current.cloud,revision:latest.revision,base:copy(latest.data)}}else vault.projects=vault.projects.filter(x=>x.id!==current.id);
    }
-   ensureNotEmpty(vault);app.saveVault(vault,true);conflicts.delete(current.id);$('cloudConflict').close();setStatus('Конфликт разрешён, копии сохранены.','pending');
+   ensureNotEmpty(vault);app.saveVault(vault,true);conflicts.delete(current.id);$('cloudConflict').close();setStatus(choice==='cloud'?'Принята облачная версия.':'Конфликт разрешён, копии сохранены.','pending');
   }catch(error){$('cloudConflictError').textContent=error.message}finally{busy=false;delay=300;notify()}
  }
- $('cloudKeepBoth').onclick=()=>resolve(false);$('cloudKeepMine').onclick=()=>resolve(true);
+ $('cloudKeepBoth').onclick=()=>resolve('both');$('cloudKeepMine').onclick=()=>resolve('mine');$('cloudKeepCloud').onclick=()=>resolve('cloud');
  async function sync(){
   if(!app.canWrite()){setStatus('Синхронизация доступна во вкладке с правом записи.','readonly');return}
   if(!client||busy||paused)return;if(document.hidden){timer=setTimeout(sync,30000);return}
