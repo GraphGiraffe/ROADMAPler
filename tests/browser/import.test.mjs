@@ -716,3 +716,25 @@ for (const choice of ['mine', 'cloud', 'both', 'deleted', 'stale']) {
     if (choice === 'both' || choice === 'deleted') { const saved = next.projects.find(p => p.id !== 'saved');assert.equal(saved.data.project.description, local.project.description);assert.equal(saved.cloud, undefined); }
   });
 }
+
+test('browser chrome follows the selected theme on toggle and reload', async () => {
+  const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light', viewport: { width: 390, height: 844 } });
+  contexts.add(context);
+  const page = await context.newPage();
+  await page.goto(origin);await page.waitForFunction(() => window.roadmapApp);
+  const chrome = () => page.evaluate(() => {
+    const color = document.querySelector('meta[name="theme-color"]').content;
+    const probe = document.createElement('span');probe.style.color = color;document.body.append(probe);
+    const actual = getComputedStyle(probe).color;probe.remove();
+    return { actual, expected: getComputedStyle(document.body).backgroundColor, theme: document.documentElement.dataset.theme };
+  });
+  for (const theme of ['dark', 'light']) {
+    await page.locator('#themeToggle').click();
+    let state = await chrome();assert.equal(state.theme, theme);assert.equal(state.actual, state.expected);
+    await page.reload();await page.waitForFunction(() => window.roadmapApp);
+    state = await chrome();assert.equal(state.theme, theme);assert.equal(state.actual, state.expected);
+  }
+  await page.evaluate(() => localStorage.removeItem('roadmap-theme'));
+  await page.emulateMedia({ colorScheme: 'dark' });await page.reload();await page.waitForFunction(() => window.roadmapApp);
+  const state = await chrome();assert.equal(state.theme, 'dark');assert.equal(state.actual, state.expected);
+});
