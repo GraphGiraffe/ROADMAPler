@@ -678,3 +678,41 @@ test('failed connection switch still persists refreshes of the retained account'
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('roadmapler-cloud:/ROADMAPler/')));
   assert.equal(saved.token, 'late-access');assert.equal(saved.user.id, 'existing-user');
 });
+
+for (const choice of ['mine', 'cloud', 'both', 'deleted', 'stale']) {
+  test(`conflict choices preserve versions and revision checks: ${choice}`, async () => {
+    const { page, context } = await recoveryDevice('', { savedSession: signedInSession() });
+    await page.waitForFunction(() => window.roadmapApp.canWrite());
+    const base = structuredClone(fixtures.find(f => f.name === 'unknown-fields-preserved').data);
+    const local = structuredClone(base), remote = structuredClone(base);
+    local.project.description = 'Local change'; remote.project.description = 'Cloud change';
+    const record = { id: '11111111-1111-4111-8111-111111111111', revision: 2, data: choice === 'deleted' ? null : remote, deleted: choice === 'deleted' };
+    const writes = [];
+    await context.route('https://klsxfhettffjbnmuxivg.supabase.co/rest/v1/**', async route => {
+      const request = route.request();
+      if (request.method() === 'POST') { const body = request.postDataJSON(); writes.push(body); Object.assign(record, { revision: 3, data: body.p_data, deleted: body.p_deleted }); }
+      return route.fulfill({ json: [record] });
+    });
+    await page.evaluate(({ base, local, id }) => {
+      const next = window.roadmapApp.getVault();next.projects = [{ id: 'saved', data: local, cloud: { enabled: true, provider: 'supabase', owner: 'supabase:https://klsxfhettffjbnmuxivg.supabase.co:existing-user', id, revision: 1, base } }];next.active = 'saved';window.roadmapApp.saveVault(next);
+    }, { base, local, id: record.id });
+    await page.waitForFunction(() => document.querySelector('#cloudStatus').dataset.state === 'conflict');
+    await page.locator('#cloudStatus').click();
+    await page.locator('#cloudConflict').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#cloudMineSummary').innerText(), /название или описание/);
+    assert.match(await page.locator('#cloudRemoteSummary').innerText(), choice === 'deleted' ? /удалён/ : /название или описание/);
+    const mine = await page.locator('#cloudKeepMine').boundingBox(), cloud = await page.locator('#cloudKeepCloud').boundingBox(), both = await page.locator('#cloudKeepBoth').boundingBox();
+    assert.ok(mine.x < cloud.x && both.y > mine.y);
+    if (choice === 'stale') record.revision++;
+    await page.locator(choice === 'mine' ? '#cloudKeepMine' : choice === 'cloud' || choice === 'stale' ? '#cloudKeepCloud' : '#cloudKeepBoth').click();
+    if (choice === 'stale') {
+      await page.waitForFunction(() => document.querySelector('#cloudConflictError').textContent.includes('снова изменилась'));
+      assert.deepEqual((await vault(page)).projects[0].data, local);assert.equal(writes.length, 0);return;
+    }
+    await page.locator('#cloudConflict').waitFor({ state: 'hidden' });
+    const next = await vault(page), original = next.projects.find(p => p.id === 'saved');
+    if (choice === 'mine') { assert.equal(writes.length, 1);assert.equal(writes[0].p_expected, 2);assert.deepEqual(original.data, local);assert.equal(next.projects.length, 2); }
+    else { assert.equal(writes.length, 0);if (choice === 'deleted') assert.equal(original, undefined);else assert.deepEqual(original.data, remote);assert.equal(next.projects.length, choice === 'both' ? 2 : 1); }
+    if (choice === 'both' || choice === 'deleted') { const saved = next.projects.find(p => p.id !== 'saved');assert.equal(saved.data.project.description, local.project.description);assert.equal(saved.cloud, undefined); }
+  });
+}
