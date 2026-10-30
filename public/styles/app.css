@@ -2,13 +2,13 @@
 :root{
   background:var(--bg);
   color-scheme:light;
-  --bg:#f3f2ed;
-  --paper:#fffef9;
+  --bg:#ffffff;
+  --paper:#f3f0e7;
   --ink:#233e36;
   --muted:#64766c;
   --line:#d9dfd4;
   --accent:#386952;
-  --wash:#edf1e7;
+  --wash:#e9e1cf;
   --idea:#eee6f4;
   --done:#dfedd7;
   --check:#f6e8bf;
@@ -290,7 +290,7 @@ input[type=checkbox]{
   }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#18261f;
+  --bg:#000000;
   --paper:#24342b;
   --ink:#edf2e9;
   --muted:#b0bfb3;
@@ -1362,8 +1362,8 @@ dialog .note{
 
 
 :root{
-  --bg:#f3f0e7;
-  --paper:#fffef8;
+  --bg:#ffffff;
+  --paper:#f3f0e7;
   --ink:#263c36;
   --muted:#667264;
   --line:#d8ddcf;
@@ -1585,7 +1585,7 @@ dialog .actions button{
   pointer-events:none}
 
 :root[data-theme=dark]{
-  --bg:#1c2922;
+  --bg:#000000;
   --paper:#27382e;
   --ink:#edf2e9;
   --muted:#b0bfb3;
