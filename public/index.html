@@ -5,12 +5,11 @@ Required Notice: ROADMAPler — https://github.com/GraphGiraffe/ROADMAPler
 Code license: PolyForm Noncommercial 1.0.0 — https://polyformproject.org/licenses/noncommercial/1.0.0
 Original artwork: CC BY-NC-SA 4.0 — https://creativecommons.org/licenses/by-nc-sa/4.0/
 -->
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROADMAPler — планировщик проектов</title><meta name="theme-color" content="#f3f0e7" data-pwa><meta name="apple-mobile-web-app-capable" content="yes" data-pwa><meta name="apple-mobile-web-app-title" content="ROADMAPler" data-pwa><link rel="icon" href="./assets/brand.svg" type="image/svg+xml" data-pwa><link rel="manifest" href="./manifest.webmanifest" data-pwa><link rel="apple-touch-icon" href="./assets/icon-192-board.png" data-pwa><script src="./pwa.js" defer data-pwa></script><style>/*__ROADMAP_STYLE__*/</style><script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROADMAPler — планировщик проектов</title><meta name="theme-color" content="#ffffff" data-pwa><meta name="apple-mobile-web-app-capable" content="yes" data-pwa><meta name="apple-mobile-web-app-title" content="ROADMAPler" data-pwa><link rel="icon" href="./assets/brand.svg" type="image/svg+xml" data-pwa><link rel="manifest" href="./manifest.webmanifest" data-pwa><link rel="apple-touch-icon" href="./assets/icon-192-board.png" data-pwa><script src="./pwa.js" defer data-pwa></script><style>/*__ROADMAP_STYLE__*/</style><script>
 // Apply the saved palette before body parsing and blocking application scripts.
 window.RoadmapTheme={apply(theme){
  document.documentElement.dataset.theme=theme;
  const color=document.querySelector('meta[name="theme-color"]');if(color)color.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
- const manifest=document.querySelector('link[rel="manifest"]');if(manifest)manifest.setAttribute('href',theme==='dark'?'./manifest-dark.webmanifest':'./manifest.webmanifest');
 }};
 let initialTheme;try{initialTheme=localStorage.getItem('roadmap-theme')}catch{}
 window.RoadmapTheme.apply(['light','dark'].includes(initialTheme)?initialTheme:document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
