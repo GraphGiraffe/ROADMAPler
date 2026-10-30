@@ -30,8 +30,11 @@
     catch {throw Error('Не удалось расшифровать проект. Проверьте ключ; данные в облаке не изменены.')}
   }
   class ApiError extends Error {constructor(message,status){super(message);this.status=status}}
-  async function request(url, options={}) {
-    const response = await fetch(url,{...options,cache:'no-store',signal:AbortSignal.timeout(20000)});
+  async function request(url, options={},reusePreflight=false) {
+    // Fetch cache modes no-store/no-cache also bypass Chromium's CORS preflight cache.
+    // Explicit request directives revalidate every GET without bypassing that cache.
+    const read=reusePreflight&&(!options.method||options.method==='GET');
+    const response = await fetch(url,{...options,cache:read?'default':'no-store',headers:{...options.headers,...(read?{'Cache-Control':'no-cache, no-store'}:{})},signal:AbortSignal.timeout(20000)});
     const text = await response.text(); let body; try {body = text ? JSON.parse(text) : null} catch {throw new ApiError('Сервер вернул неподдерживаемый ответ.',response.status)}
     if (!response.ok) throw new ApiError(body?.message || body?.msg || body?.error_description || body?.error || 'Ошибка сервера '+response.status,response.status);
     return body;
@@ -62,9 +65,9 @@
     session(result){Object.assign(this.config,{token:result.access_token,refresh:result.refresh_token,user:result.user,expires:Date.now()+result.expires_in*1000});this.owner='supabase:'+this.url+':'+result.user.id;this.onSession?.(this.config)}
     async connect(){if(!this.config.token)throw Error('Войдите в аккаунт.');await this.refresh();const user=await request(this.url+'/auth/v1/user',{headers:{apikey:this.config.key,Authorization:'Bearer '+this.config.token}});this.config.user=user;this.owner='supabase:'+this.url+':'+user.id;return {name:user.email}}
     async refresh(){if(this.refreshing)return this.refreshing;if(this.config.expires>Date.now()+60000)return;if(!this.config.refresh)throw new ApiError('Войдите в аккаунт ещё раз.',401);this.refreshing=this.auth('token?grant_type=refresh_token',{refresh_token:this.config.refresh}).then(result=>this.session(result)).finally(()=>{this.refreshing=null});return this.refreshing}
-    async api(path,options={}){await this.refresh();return request(this.url+'/rest/v1/'+path,{...options,headers:{apikey:this.config.key,Authorization:'Bearer '+this.config.token,'Content-Type':'application/json',...options.headers}})}
-    async list(){return this.api('roadmap_projects?select=id,revision,deleted,updated_at')}
-    async read(id,revision){const rows=await this.api((revision?'roadmap_versions':'roadmap_projects')+'?select=*&id=eq.'+encodeURIComponent(id)+(revision?'&revision=eq.'+encodeURIComponent(revision):''));return rows[0]||null}
+    async api(path,options={}){await this.refresh();return request(this.url+'/rest/v1/'+path,{...options,headers:{apikey:this.config.key,Authorization:'Bearer '+this.config.token,'Content-Type':'application/json',...options.headers}},true)}
+    async list(){return this.api('roadmap_projects?select=id,revision,deleted')}
+    async read(id,revision){const rows=await this.api((revision?'roadmap_versions':'roadmap_projects')+'?select=id,revision,deleted,data&id=eq.'+encodeURIComponent(id)+(revision?'&revision=eq.'+encodeURIComponent(revision):''));return rows[0]||null}
     async write(id,revision,data,deleted=false){const rows=await this.api('rpc/roadmap_write',{method:'POST',body:JSON.stringify({p_id:id,p_expected:revision||0,p_data:data,p_deleted:deleted})});return Array.isArray(rows)?rows[0]:rows}
     async history(id){return (await this.api('roadmap_versions?select=revision,updated_at&id=eq.'+encodeURIComponent(id)+'&order=revision.desc&limit=20')).map(x=>({revision:x.revision,label:x.updated_at}))}
   }
