@@ -766,3 +766,33 @@ for (const [saved, system, expected] of [['dark','light','dark'], ['light','dark
     assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'), './manifest.webmanifest');
   });
 }
+
+test('cloud GETs stay fresh while reusing CORS preflight authorization', async () => {
+  const counts={get:0,options:0}, tokens=[], paths=[];
+  const api=createServer((request,response)=>{
+    response.setHeader('Access-Control-Allow-Origin',new URL(origin).origin);
+    response.setHeader('Access-Control-Allow-Headers','authorization,apikey,content-type,cache-control');
+    response.setHeader('Access-Control-Max-Age','3600');
+    if(request.method==='OPTIONS'){counts.options++;response.end();return;}
+    counts.get++;tokens.push(request.headers.authorization);paths.push(request.url);
+    assert.equal(request.headers['cache-control'],'no-cache, no-store');
+    // Even an otherwise cacheable response must not hide a later revision/account.
+    response.setHeader('Cache-Control','public, max-age=3600');response.setHeader('Content-Type','application/json');
+    response.end(JSON.stringify([{id:'fixture',revision:counts.get,deleted:false}]));
+  }).listen(0,'127.0.0.1');
+  await new Promise(resolve=>api.on('listening',resolve));
+  const {context,page}=await device();
+  try{
+    const results=await page.evaluate(async url=>{
+      const client=new RoadmapSync.Supabase({url,key:'fixture',token:'first',expires:Date.now()+3600000});
+      const revisions=[];
+      for(let i=0;i<3;i++)revisions.push((await client.list())[0].revision);
+      client.config.token='second';
+      for(let i=0;i<3;i++)revisions.push((await client.list())[0].revision);
+      return revisions;
+    },'http://127.0.0.1:'+api.address().port);
+    assert.deepEqual(results,[1,2,3,4,5,6]);assert.equal(counts.get,6);assert.equal(counts.options,1);
+    assert.deepEqual(tokens,['Bearer first','Bearer first','Bearer first','Bearer second','Bearer second','Bearer second']);
+    assert.ok(paths.every(p=>new URL(p,'http://local').searchParams.get('select')==='id,revision,deleted'));
+  }finally{await context.close();contexts.delete(context);await new Promise(resolve=>api.close(resolve));}
+});
