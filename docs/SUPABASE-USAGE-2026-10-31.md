@@ -19,3 +19,5 @@ Postgres: log_statement=ddl, log_duration=off, log_min_duration_statement=-1, lo
 SQL-изменения: **не применялись**. Только SELECT настроек и агрегаты логов. Схемы, RLS, Auth и диагностика безопасности не изменялись.
 
 Источники: [Logs Ingest](https://supabase.com/docs/guides/platform/manage-your-usage/logs-ingest), [Egress](https://supabase.com/docs/guides/platform/manage-your-usage/egress).
+
+Последующий аудит: эти суточные агрегаты повторно не запрашивать. Они сами создали расход Logs Query; теперь действует ограничение начального окна 5 минут из AGENTS.md. Подтверждённые семь исторических вызовов и ограничения атрибуции описаны в [аудите Logs Query](SUPABASE-LOGS-QUERY-2026-10-31.md).
