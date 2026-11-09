@@ -2351,3 +2351,6 @@ dialog label{
  .release-note-disclosure { font-size:10px; }
  .board-scroll { overscroll-behavior-x:contain; }
 }
+
+/* Board redraw restores its own scroll offsets; avoid competing native anchors. */
+.board-scroll { overflow-anchor:none; }

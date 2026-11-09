@@ -845,3 +845,14 @@ test('mobile release comments collapse, persist per project and preserve full te
   await page.locator('#project-tab-'+initial.second).click();assert.equal(await disclosure.evaluate(el=>el.open),false);
   await page.locator('#project-tab-'+initial.first).click();assert.equal(await disclosure.evaluate(el=>el.open),true);
 });
+
+test('visibility redraw preserves board scroll in both directions',async()=>{
+  const {page}=await device();await page.setViewportSize({width:390,height:850});
+  await page.evaluate(data=>{const next=roadmapApp.getVault();const task=data.tasks[0];data.releases=Array.from({length:9},(_,i)=>({id:'r'+i,title:'Release '+i}));data.tracks=Array.from({length:25},(_,i)=>({id:'t'+i,title:'Track '+i,subtitle:''}));data.tasks=data.tracks.map((t,i)=>({...task,id:'task'+i,track:t.id,release:'r0',title:'Card '+i}));next.projects[0].data=data;roadmapApp.saveVault(next,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+  const position=()=>page.locator('.board-scroll').evaluate(el=>({top:el.scrollTop,left:el.scrollLeft}));
+  await page.locator('.board-scroll').evaluate(el=>{el.scrollTop=500;el.scrollLeft=240});
+  const before=await position();assert.ok(before.top>0&&before.left>0);
+  for(const action of [()=>page.locator('.track-row[data-track="t7"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.track-row[data-track="t7"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.head[data-release="r2"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.head[data-release="r2"] .visibility-button').evaluate(el=>el.click())]){
+    await action();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));assert.deepEqual(await position(),before);
+  }
+});
