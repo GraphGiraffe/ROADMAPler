@@ -900,3 +900,13 @@ test('project tab color persists, supports undo and distinguishes projects in bo
  await page.locator('#redo').click();await page.reload();await page.waitForFunction(()=>window.roadmapApp);assert.equal(await page.evaluate(()=>state.project.color),'#aa665b');
  await page.evaluate(()=>openProjectName());await page.locator('#projectColor').fill('');await page.locator('#projectForm button[type="submit"]').click();assert.equal(await page.evaluate(()=>state.project.color),undefined);
 });
+
+for (const width of [390,1200]) test(`project tabs reserve space for their scrollbar (${width}px)`,async()=>{
+ const {page}=await device();await page.setViewportSize({width,height:850});
+ await page.evaluate(()=>{const v=roadmapApp.getVault();for(let i=0;i<12;i++){const p=roadmapApp.emptyProject();p.data.project.name='Проект '+i;p.data.project.color='#528f8b';v.projects.push(p)}roadmapApp.saveVault(v,true)});
+ const tabs=page.locator('#projectTabs');
+ const bounds=await tabs.evaluate(el=>{const rect=el.getBoundingClientRect(),style=getComputedStyle(el);return {overflows:el.scrollWidth>el.clientWidth,padding:parseFloat(style.paddingBottom),clearance:rect.bottom-Math.max(...Array.from(el.children,c=>c.getBoundingClientRect().bottom))}});
+ assert.ok(bounds.overflows);assert.ok(bounds.padding>=8,JSON.stringify(bounds));assert.ok(bounds.clearance>=8,JSON.stringify(bounds));
+ await tabs.evaluate(el=>{el.scrollLeft=el.scrollWidth});assert.ok(await tabs.evaluate(el=>el.scrollLeft>0));
+ await page.locator('#newProject').click();assert.equal(await page.locator('#projectDialog').evaluate(el=>el.open),true);
+});
