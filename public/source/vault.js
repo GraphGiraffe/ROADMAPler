@@ -26,7 +26,7 @@ const projectViews=new Map(),pendingViews=new Map(),viewEncoded=new Map();let vi
 function readProjectViews(){const raw=localStorage.getItem(viewKey);if(!raw)return new Map();const parsed=JSON.parse(raw);if(parsed.version!==1||!Array.isArray(parsed.projects)||parsed.projects.length>1000)throw Error('Неподдерживаемые настройки вида');return new Map(parsed.projects.filter(item=>Array.isArray(item)&&typeof item[0]==='string'&&item[1]&&typeof item[1]==='object'))}
 const viewStorageKey=id=>viewKey+':'+encodeURIComponent(id);
 try{if(!portable){for(const [id,view] of readProjectViews())projectViews.set(id,view);for(const project of vault.projects){const raw=localStorage.getItem(viewStorageKey(project.id));if(raw){const view=JSON.parse(raw);if(!view||typeof view!=='object'||Array.isArray(view))throw Error('Некорректный вид');projectViews.set(project.id,view);viewEncoded.set(project.id,raw)}}}}catch{viewStorageWarning=true;$('statusMessage').textContent='Не удалось прочитать настройки вида. Проекты сохранены отдельно.'}
-function currentProjectView(){return {selected,showBacklog,hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked,showDoneReleases:$('showDoneReleases').checked}}
+function currentProjectView(){return {selected,showBacklog,noteVisibility:[...noteVisibility],hiddenTracks:[...hiddenTracks],hiddenReleases:[...hiddenReleases],filter:$('filter').value,search:$('search').value,showDone:$('showDone').checked,showDoneReleases:$('showDoneReleases').checked}}
 function flushProjectViews(){
  clearTimeout(viewTimer);if(portable)return;
  for(const [id,raw] of pendingViews){try{localStorage.setItem(viewStorageKey(id),raw);pendingViews.delete(id)}catch{if(!viewStorageWarning){viewStorageWarning=true;$('statusMessage').textContent='Настройки вида действуют до закрытия приложения: хранилище недоступно.'}}}
@@ -40,7 +40,8 @@ window.addEventListener('pageshow',event=>{if(event.persisted)writeGuard.start()
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveProjectView();flushProjectViews()}});
 function applyProjectView(saved){
  selected=state.tasks.some(task=>task.id===saved?.selected)?saved.selected:state.tasks[0]?.id;showBacklog=typeof saved?.showBacklog==='boolean'?saved.showBacklog:true;
- document.documentElement.dataset.backlog=showBacklog?'visible':'hidden';hiddenTracks.clear();hiddenReleases.clear();
+ document.documentElement.dataset.backlog=showBacklog?'visible':'hidden';hiddenTracks.clear();hiddenReleases.clear();noteVisibility.clear();
+ for(const entry of Array.isArray(saved?.noteVisibility)?saved.noteVisibility:[])if(Array.isArray(entry)&&typeof entry[0]==='string'&&typeof entry[1]==='boolean'&&state.releases.some(r=>r.id===entry[0]))noteVisibility.set(entry[0],entry[1]);
  for(const id of Array.isArray(saved?.hiddenTracks)?saved.hiddenTracks:[])if(state.tracks.some(track=>track.id===id))hiddenTracks.add(id);
  for(const id of Array.isArray(saved?.hiddenReleases)?saved.hiddenReleases:[])if(state.releases.some(release=>release.id===id))hiddenReleases.add(id);
  $('search').value=typeof saved?.search==='string'?saved.search:'';$('showDone').checked=typeof saved?.showDone==='boolean'?saved.showDone:true;$('showDoneReleases').checked=typeof saved?.showDoneReleases==='boolean'?saved.showDoneReleases:true;
