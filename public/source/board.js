@@ -67,6 +67,15 @@ function layoutTrackCards(row){
  row.style.gridTemplateRows='minmax('+Math.max(empty,Math.ceil(Math.max(0,...bottoms.filter(Number.isFinite))+reserve))+'px,auto)';
 }
 const cardSizeObserver=new ResizeObserver(entries=>{for(const row of new Set(entries.map(e=>e.target.parentElement)))if(row?.isConnected)layoutTrackCards(row)});
+function releaseNote(release){
+ if(release.note.length<=100&&!release.note.includes('\n'))return text('p',release.note,'release-note');
+ const details=text('details','','release-note-disclosure'),summary=text('summary','Комментарий');
+ details.open=noteVisibility.has(release.id)?noteVisibility.get(release.id):!matchMedia('(max-width:760px)').matches;
+ details.append(summary,text('p',release.note,'release-note'));
+ let last=details.open;const project=vault.active;
+ details.ontoggle=()=>{if(last===details.open)return;last=details.open;if(!details.isConnected||vault.active!==project)return;noteVisibility.set(release.id,details.open);saveProjectView()};
+ return details;
+}
 function draw(full=true){
  clearTimeout(searchTimer);
  if(full!==false)renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
@@ -77,10 +86,10 @@ function draw(full=true){
  for(const release of cols){
   const header=text('div','','head');header.dataset.release=release.id;
   const status=columnDefault(release.id);if(status){header.classList.add('has-default');header.dataset.defaultStatus=status;header.append(statusMark(status))}else if(release.id==='backlog')header.classList.add('backlog-head');
-  if(isCollapsed(release.id)){header.classList.add('collapsed-head');header.append(visibilityButton(true,'Показать '+release.title,()=>toggleRelease(release.id)));board.append(header);continue}
+  if(isCollapsed(release.id)){header.classList.add('collapsed-head');const tools=text('div','','column-tools');tools.append(visibilityButton(true,'Показать '+release.title,()=>toggleRelease(release.id)));header.append(tools);board.append(header);continue}
   if(release.id==='add-release'){header.classList.add('add-column');const add=text('button','','add-board-button');add.type='button';add.innerHTML=toolIcon('plus');add.title='Добавить релиз';add.setAttribute('aria-label',add.title);add.onclick=()=>openRelease();header.append(add);board.append(header);continue}
   const heading=text('h2',''),name=text('button',release.title,'name-button');name.type='button';name.title='Настройки '+release.title;name.onclick=()=>openRelease(release.id);heading.append(name);header.append(heading);
-  if(release.note)header.append(text('p',release.note));if(status)header.append(text('p',labels[status],'column-default-label'));
+  if(release.note)header.append(releaseNote(release));if(status)header.append(text('p',labels[status],'column-default-label'));
   header.append(text('p',state.tasks.filter(t=>taskReleases(t).includes(release.id)).length+' карточек'));
   const tools=text('div','','column-tools');if(!release.locked){const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать '+(release.id==='backlog'?'backlog':'релиз '+release.title));edit.onclick=()=>openRelease(release.id);tools.append(edit)}
   tools.append(visibilityButton(false,'Скрыть '+release.title,()=>toggleRelease(release.id)));header.append(tools);board.append(header);
@@ -89,7 +98,7 @@ function draw(full=true){
  for(const track of state.tracks){
   if($('filter').value!=='all'&&$('filter').value!==track.id)continue;
   const row=text('div','','track-row');row.style.gridTemplateColumns=template;row.boardColumns=cols;row.dataset.track=track.id;
-  if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}),text('small',track.title));row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
+  if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(text('small',track.title));const tools=text('div','','track-tools'),edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);tools.append(edit,visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}));label.append(tools);row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
   const tasks=state.tasks.filter(t=>t.track===track.id&&($('showDone').checked||t.status!=='done')&&(!query||(t.title+' '+t.description).toLocaleLowerCase('ru').includes(query)));
   if(query&&!tasks.length)continue;
   const placements=[];
