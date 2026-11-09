@@ -1549,5 +1549,405 @@
       ],
       "sources": []
     }
+  },
+  {
+    "name": "appearance-valid",
+    "valid": true,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": ""
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": "",
+          "icon": "flask",
+          "color": "#1357ab"
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "1 < 2; </script>",
+          "source": "",
+          "custom": {
+            "x": true
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "source",
+          "path": "<tag>"
+        }
+      ],
+      "custom": {
+        "nested": [
+          "x",
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "appearance-unknown-icon",
+    "valid": true,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": ""
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": "",
+          "icon": "future-icon"
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "1 < 2; </script>",
+          "source": "",
+          "custom": {
+            "x": true
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "source",
+          "path": "<tag>"
+        }
+      ],
+      "custom": {
+        "nested": [
+          "x",
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "appearance-invalid-color",
+    "valid": false,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": ""
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": "",
+          "color": "red; color:white"
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "1 < 2; </script>",
+          "source": "",
+          "custom": {
+            "x": true
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "source",
+          "path": "<tag>"
+        }
+      ],
+      "custom": {
+        "nested": [
+          "x",
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "appearance-invalid-icon",
+    "valid": false,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": ""
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": "",
+          "icon": "<svg>"
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "1 < 2; </script>",
+          "source": "",
+          "custom": {
+            "x": true
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "source",
+          "path": "<tag>"
+        }
+      ],
+      "custom": {
+        "nested": [
+          "x",
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "appearance-invalid-type",
+    "valid": false,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": ""
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": "",
+          "color": 17
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "1 < 2; </script>",
+          "source": "",
+          "custom": {
+            "x": true
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "source",
+          "path": "<tag>"
+        }
+      ],
+      "custom": {
+        "nested": [
+          "x",
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "project-color-valid",
+    "valid": true,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": "",
+        "color": "#1357ab"
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": ""
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "",
+          "source": ""
+        }
+      ],
+      "sources": []
+    }
+  },
+  {
+    "name": "project-color-invalid",
+    "valid": false,
+    "data": {
+      "format": "roadmap-project",
+      "formatVersion": 1,
+      "project": {
+        "id": "fixture",
+        "name": "Пример",
+        "description": "",
+        "color": "red;"
+      },
+      "tracks": [
+        {
+          "id": "t1",
+          "title": "Трек",
+          "subtitle": ""
+        }
+      ],
+      "releases": [
+        {
+          "id": "r1",
+          "title": "Первый выпуск",
+          "note": ""
+        },
+        {
+          "id": "r2",
+          "title": "Второй выпуск",
+          "note": ""
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Карточка",
+          "description": "Описание",
+          "track": "t1",
+          "release": "r1",
+          "status": "idea",
+          "accept": "",
+          "comment": "",
+          "source": ""
+        }
+      ],
+      "sources": []
+    }
   }
 ]

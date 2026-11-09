@@ -29,11 +29,15 @@ $('undo').onclick=()=>restore(undoStack,redoStack);$('redo').onclick=()=>restore
 for(const id of ['filter','showDone'])$(id).onchange=()=>draw(false);$('search').oninput=()=>{saveProjectView();clearTimeout(searchTimer);searchTimer=setTimeout(()=>draw(false),120)};
 document.addEventListener('keydown',e=>{if(resizingCard||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(e.shiftKey)restore(redoStack,undoStack);else restore(undoStack,redoStack)}});
 
-let editingTrack=null;
+let editingTrack=null,editingTrackIcon='';
+function paintTrackIcons(){const picker=$('trackIcons');picker.replaceChildren();for(const [id,entry] of [['',{title:'Без иконки'}],...Object.entries(RoadmapProjectFormat.trackIcons)]){const button=text('button','','icon-button');button.type='button';button.title=entry.title;button.setAttribute('aria-label',entry.title);button.setAttribute('aria-pressed',String(editingTrackIcon===id));if(id)button.append(trackIcon(id));else button.textContent='—';button.onclick=()=>{editingTrackIcon=id;paintTrackIcons()};picker.append(button)}}
+function colorPalette(target,container){for(const color of ['', '#4f8063','#5b80a8','#9974a8','#ad864f','#aa665b','#528f8b','#867b63','#7b89b5']){const button=text('button',color?'':'×','color-swatch');button.type='button';button.title=color||'Цвет по умолчанию';button.setAttribute('aria-label',button.title);if(color)button.style.backgroundColor=color;button.onclick=()=>{$(target).value=color};$(container).append(button)}}
+colorPalette('trackColor','trackColors');colorPalette('projectColor','projectColors');
+
 function openTrack(id=null){
   editingTrack=id;const track=state.tracks.find(t=>t.id===id);
   $('trackDialogTitle').textContent=track?'Редактировать трек':'Новый трек';
-  $('trackName').value=track?.title||'';$('trackSubtitle').value=track?.subtitle||'';
+  $('trackName').value=track?.title||'';$('trackSubtitle').value=track?.subtitle||'';editingTrackIcon=track?.icon||'';$('trackColor').value=track?.color||'';paintTrackIcons();
   $('trackPosition').replaceChildren();for(let i=0;i<state.tracks.length+(track?0:1);i++)option($('trackPosition'),String(i),String(i+1));
   $('trackPosition').value=String(track?state.tracks.indexOf(track):state.tracks.length);
   $('deleteTrack').hidden=!track;
@@ -41,8 +45,8 @@ function openTrack(id=null){
 }
 $('trackCancel').onclick=()=>$('trackDialog').close();
 $('trackForm').onsubmit=event=>{event.preventDefault();const title=$('trackName').value.trim();if(!title){showFieldError($('trackName'),'Введите название');return}
-  const subtitle=$('trackSubtitle').value.trim(),position=Number($('trackPosition').value);
-  const saved=change(()=>{let track=state.tracks.find(t=>t.id===editingTrack);if(track){track.title=title;track.subtitle=subtitle;state.tracks=state.tracks.filter(t=>t!==track)}else track={id:'track-'+crypto.randomUUID(),title,subtitle};state.tracks.splice(position,0,track)},'Трек сохранён. Доступна отмена.');if(saved)$('trackDialog').close();
+  const subtitle=$('trackSubtitle').value.trim(),position=Number($('trackPosition').value),color=$('trackColor').value.trim();if(color&&!/^#[0-9a-fA-F]{6}$/.test(color)){showFieldError($('trackColor'),'Укажите цвет в формате #RRGGBB');return}
+  const saved=change(()=>{let track=state.tracks.find(t=>t.id===editingTrack);if(track){track.title=title;track.subtitle=subtitle;state.tracks=state.tracks.filter(t=>t!==track)}else track={id:'track-'+crypto.randomUUID(),title,subtitle};if(editingTrackIcon)track.icon=editingTrackIcon;else delete track.icon;if(color)track.color=color;else delete track.color;state.tracks.splice(position,0,track)},'Трек сохранён. Доступна отмена.');if(saved)$('trackDialog').close();
 };
 $('trackName').oninput=()=>$('trackName').setCustomValidity('');
 $('deleteTrack').onclick=()=>openEntityDeletion('track',editingTrack);
@@ -99,3 +103,5 @@ $('deleteEntityForm').onsubmit=event=>{
  }
  $('deleteEntityDialog').close();$(kind==='task'?'taskDialog':kind==='track'?'trackDialog':'releaseDialog').close();document.querySelector('.board-scroll').focus({preventScroll:true});
 };
+
+$('compactBoard').onchange=()=>draw(false);

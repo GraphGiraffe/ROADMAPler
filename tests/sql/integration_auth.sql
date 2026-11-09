@@ -31,11 +31,13 @@ set role anon;
 do $$
 declare project text:='10000000-0000-4000-8000-000000000001'; endpoint text; secret text; result jsonb;
  reads text[]:=array[
+ 'select public.roadmap_integration_capabilities(%L)',
  'select * from public.roadmap_integration_access(%L)',
  'select public.roadmap_integration_cards(%L)',
  'select public.roadmap_integration_structure(%L,''tracks'')',
  'select public.roadmap_integration_changes(%L,0)'];
  writes text[]:=array[
+ 'select public.roadmap_integration_project(%L,1,''{"color":"#1357ab"}''::jsonb)',
  'select * from public.roadmap_integration_access(%L,''write'',1,''{}''::jsonb)',
  'select public.roadmap_integration_cards(%L,''update'',''card'',1,''{"title":"changed"}''::jsonb)',
  'select public.roadmap_integration_structure(%L,''tracks'',''update'',''track'',1,''{"title":"changed"}''::jsonb)'];
@@ -100,11 +102,26 @@ select public.test_error('select * from public.roadmap_integration_access(''1000
 select public.test_error('select public.roadmap_integration_cards(''10000000-0000-4000-8000-000000000001'',''update'',''card'',1,''{"title":"stale"}'')','PT409');
 select public.test_error('select public.roadmap_integration_structure(''10000000-0000-4000-8000-000000000001'',''tracks'',''update'',''track'',1,''{"title":"stale"}'')','PT409');
 select public.test_assert((select revision=4 and data->'tasks'->0->>'title'='Changed card' from public.roadmap_integration_access('10000000-0000-4000-8000-000000000001')),'conflicts preserve current data');
+-- Appearance is optional and project scoped; clearing fields preserves other metadata.
+select public.test_header('d');
+select public.test_assert(public.roadmap_integration_capabilities('10000000-0000-4000-8000-000000000001')->>'api_version'='1.1','capabilities available to scoped reader/writer');
+select public.test_assert(public.roadmap_integration_structure('10000000-0000-4000-8000-000000000001','tracks','update','track',4,'{"icon":"flask","color":"#1357ab"}')->'track'->>'icon'='flask','track appearance saved');
+select public.test_error('select public.roadmap_integration_structure(''10000000-0000-4000-8000-000000000001'',''tracks'',''update'',''track'',5,''{"color":"red;"}'')','PT400');
+select public.test_error('select public.roadmap_integration_structure(''10000000-0000-4000-8000-000000000001'',''tracks'',''update'',''track'',4,''{"color":"#ffffff"}'')','PT409');
+select public.test_assert(not(public.roadmap_integration_structure('10000000-0000-4000-8000-000000000001','tracks','update','track',5,'{"icon":null,"color":null}')->'track' ? 'icon'),'appearance can be cleared');
+select public.test_assert(public.roadmap_integration_project('10000000-0000-4000-8000-000000000001',6,'{"color":"#1357ab"}')->'project'->>'name'='Updated A','project metadata update retains name');
+select public.test_error('select public.roadmap_integration_project(''10000000-0000-4000-8000-000000000001'',6,''{"color":"#ffffff"}'')','PT409');
+select public.test_error('select public.roadmap_integration_project(''10000000-0000-4000-8000-000000000001'',7,''{"color":"red"}'')','PT400');
+select public.test_assert(not(public.roadmap_integration_project('10000000-0000-4000-8000-000000000001',7,'{"color":null}')->'project' ? 'color'),'project color can be cleared');
+select public.test_header('f');
+select public.test_error('select public.roadmap_integration_capabilities(''10000000-0000-4000-8000-000000000001'')','PT401');
+
+select public.test_header('d');
 select public.test_header('c');
-select public.test_assert((select deleted and revision=5 from public.roadmap_integration_access('10000000-0000-4000-8000-000000000001','delete',4)),'delete-only token tombstones project');
+select public.test_assert((select deleted and revision=9 from public.roadmap_integration_access('10000000-0000-4000-8000-000000000001','delete',8)),'delete-only token tombstones project');
 select public.test_header('d');
 select public.test_assert((select deleted from public.roadmap_integration_access('10000000-0000-4000-8000-000000000001')),'full read returns tombstone');
-select public.test_error('select * from public.roadmap_integration_access(''10000000-0000-4000-8000-000000000001'',''write'',5,''{}'')','PT410');
+select public.test_error('select * from public.roadmap_integration_access(''10000000-0000-4000-8000-000000000001'',''write'',9,''{}'')','PT410');
 select public.test_error('select public.roadmap_integration_cards(''10000000-0000-4000-8000-000000000001'')','PT410');
 select public.test_assert((public.roadmap_integration_changes('10000000-0000-4000-8000-000000000001',4)->>'deleted')::boolean,'delta returns tombstone');
 reset role;

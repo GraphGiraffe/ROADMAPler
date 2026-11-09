@@ -24,7 +24,7 @@ before(async () => {
     let text = ''; for await (const chunk of request) text += chunk;
     requests.push({ url: request.url, headers: request.headers, body: JSON.parse(text) });
     response.writeHead(apiStatus, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(apiStatus === 200 ? { id: project, revision: 7, tokenEcho: token } : { message: 'Denied ' + token, code: 'PT' + apiStatus }));
+    response.end(JSON.stringify(apiStatus === 200 ? request.url.endsWith('/roadmap_integration_capabilities')?{api_version:'1.1',compatible_major:1,features:['track-appearance','project-appearance'],track_fields:['title','subtitle','icon','color'],project_fields:['name','description','color']}:{ id: project, revision: 7, tokenEcho: token } : { message: 'Denied ' + token, code: 'PT' + apiStatus }));
   }).listen(0, '127.0.0.1');
   await new Promise(resolve => api.on('listening', resolve));
   await writeFile(join(directory, 'credentials.json'), JSON.stringify({ projectId: project, token, publishableKey: 'sb_publishable_test', supabaseUrl: `http://127.0.0.1:${api.address().port}` }), { mode: 0o600 });
@@ -74,8 +74,8 @@ test('extracted MCP starts without dependencies and discovers all tools', async 
   try {
     const early = await c.call('tools/list'); assert.equal(early.error.code, -32000);
     const init = await c.start('2025-03-26'); assert.equal(init.result.protocolVersion, '2025-03-26');
-    const list = await c.call('tools/list'); assert.equal(list.result.tools.length, 18);
-    assert.equal(new Set(list.result.tools.map(t => t.name)).size, 18);
+    const list = await c.call('tools/list'); assert.equal(list.result.tools.length, 22);
+    assert.equal(new Set(list.result.tools.map(t => t.name)).size, 22);
     for (const tool of list.result.tools) { assert.equal(tool.inputSchema.additionalProperties, false); assert.ok(tool.annotations); }
     assert.ok(list.result.tools.find(t => t.name === 'roadmap_card_delete').annotations.destructiveHint);
     assert.equal((await c.call('ping')).result.constructor, Object);
@@ -104,6 +104,9 @@ test('tools reuse CLI endpoints, validate schemas, preserve revisions and redact
       cases.push(['roadmap_' + plural + '_search', { offset: 10, limit: 5 }, 'roadmap_integration_structure', { p_kind: plural, p_action: 'search' }]);
       for (const verb of ['get', 'create', 'update', 'delete']) cases.push(['roadmap_' + kind + '_' + verb, { id: kind, ...(verb === 'get' ? {} : { expected: 7 }), ...(verb === 'create' || verb === 'update' ? { patch: { title: 'Changed' }, position: 0 } : {}), ...(verb === 'delete' ? { cards: 'move', target_track: 'other', target_release: 'backlog', confirm_delete: kind } : {}) }, 'roadmap_integration_structure', { p_kind: plural, p_action: verb }]);
     }
+    cases.push(['roadmap_project_update',{expected:7,patch:{color:'#1357ab'}},'roadmap_integration_project',{p_patch:{color:'#1357ab'},p_expected:7}]);
+    cases.push(['roadmap_capabilities',{},'roadmap_integration_capabilities',{}]);
+    cases.push(['roadmap_track_update',{id:'track',expected:7,patch:{icon:'flask',color:'#1357ab'}},'roadmap_integration_structure',{p_patch:{icon:'flask',color:'#1357ab'}}]);
     for (const [name, args, endpoint, fields] of cases) {
       assert.equal((await invoke(name, args)).result.isError, false, name);
       assert.equal(requests.at(-1).url, '/rest/v1/rpc/' + endpoint);
@@ -134,4 +137,31 @@ test('unsafe credential files fail before any network call', async () => {
     assert.equal((await c.call('tools/call', { name: 'roadmap_project_read', arguments: { credentials: link } })).result.isError, true);
     assert.equal(requests.length, count);
   } finally { await chmod(credentials, 0o600); await c.close(); }
+});
+
+test('plugin update is verified, in place, preserves connections and rejects corrupt ZIP', async()=>{
+ const {pluginStatus,updatePlugin,unpackStoredZip}=await import('../agent-plugin/server/update.mjs');
+ const updateRoot=join(directory,'update-target');await mkdir(updateRoot,{recursive:true});
+ await writeFile(join(updateRoot,'plugin.json'),JSON.stringify({name:'roadmapler',version:'0.1.0'}));
+ await writeFile(join(updateRoot,'.mcp.json'),'host connection kept');
+ const archive=await readFile(archivePath);
+ const fetcher=async url=>new Response(String(url).endsWith('manifest.json')?JSON.stringify(manifest):archive,{status:200});
+ const rootURL=pathToFileURL(updateRoot+'/');
+ assert.equal((await pluginStatus(rootURL,fetcher)).updateAvailable,true);
+ const result=await updatePlugin(rootURL,fetcher);assert.equal(result.updated,true);assert.equal(result.restartRequired,true);
+ assert.equal(await readFile(join(updateRoot,'.mcp.json'),'utf8'),'host connection kept');
+ assert.equal((await pluginStatus(rootURL,fetcher)).updateAvailable,false);
+ assert.throws(()=>unpackStoredZip(Buffer.from('not ZIP')));
+ await writeFile(join(updateRoot,'plugin.json'),JSON.stringify({name:'roadmapler',version:'0.1.0'}));
+ const corrupt=async url=>new Response(String(url).endsWith('manifest.json')?JSON.stringify(manifest):Buffer.from('corrupt'));
+ await assert.rejects(updatePlugin(rootURL,corrupt),/checksum/);
+ assert.equal(JSON.parse(await readFile(join(updateRoot,'plugin.json'),'utf8')).version,'0.1.0');
+});
+
+test('updater rejects another plugin root and ZIP path traversal',async()=>{
+ const {pluginStatus,unpackStoredZip}=await import('../agent-plugin/server/update.mjs');
+ const path=join(directory,'other-plugin');await mkdir(path);await writeFile(join(path,'plugin.json'),JSON.stringify({name:'other',version:'1.0.0'}));
+ await assert.rejects(pluginStatus(pathToFileURL(path+'/'),async()=>{throw Error('network must not run')}),/ROADMAPler plugin root/);
+ const name=Buffer.from('../escape'),header=Buffer.alloc(30);header.writeUInt32LE(0x04034b50);header.writeUInt16LE(name.length,26);
+ assert.throws(()=>unpackStoredZip(Buffer.concat([header,name,Buffer.from([0,0,0,0])])),/Unsafe/);
 });

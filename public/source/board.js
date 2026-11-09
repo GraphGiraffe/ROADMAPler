@@ -73,11 +73,14 @@ function releaseNote(release){
  details.open=noteVisibility.has(release.id)?noteVisibility.get(release.id):!matchMedia('(max-width:760px)').matches;
  details.append(summary,text('p',release.note,'release-note'));
  let last=details.open;const project=vault.active;
- details.ontoggle=()=>{if(last===details.open)return;last=details.open;if(!details.isConnected||vault.active!==project)return;noteVisibility.set(release.id,details.open);saveProjectView()};
+ const remember=()=>{if(last===details.open)return;last=details.open;if(!details.isConnected||vault.active!==project)return;noteVisibility.set(release.id,details.open);saveProjectView()};
+ details.ontoggle=remember;
+ summary.onclick=event=>{event.preventDefault();details.open=!details.open;remember()};
  return details;
 }
 function draw(full=true){
- clearTimeout(searchTimer);
+ const scroller=$('board').parentElement,scrollTop=scroller.scrollTop,scrollLeft=scroller.scrollLeft,pageX=window.scrollX,pageY=window.scrollY;
+ clearTimeout(searchTimer);scroller.classList.toggle('compact-board',$('compactBoard').checked);
  if(full!==false)renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
  const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'var(--col)').join(' ');
  $('filter').replaceChildren();option($('filter'),'all','Все треки');for(const track of state.tracks)option($('filter'),track.id,track.title);$('filter').value=state.tracks.some(t=>t.id===filter)?filter:'all';
@@ -98,7 +101,7 @@ function draw(full=true){
  for(const track of state.tracks){
   if($('filter').value!=='all'&&$('filter').value!==track.id)continue;
   const row=text('div','','track-row');row.style.gridTemplateColumns=template;row.boardColumns=cols;row.dataset.track=track.id;
-  if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(text('small',track.title));const tools=text('div','','track-tools'),edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);tools.append(edit,visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}));label.append(tools);row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
+  if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(text('small',track.title));const tools=text('div','','track-tools'),edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);tools.append(edit,visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}));label.append(tools);decorateTrack(label,track);row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
   const tasks=state.tasks.filter(t=>t.track===track.id&&($('showDone').checked||t.status!=='done')&&(!query||(t.title+' '+t.description).toLocaleLowerCase('ru').includes(query)));
   if(query&&!tasks.length)continue;
   const placements=[];
@@ -106,7 +109,7 @@ function draw(full=true){
   const height=0;
   const label=text('div','','track');label.style.gridRow='1 / span '+(height+1);label.style.gridColumn='1';
   const name=text('button',track.title,'name-button');name.type='button';name.title='Редактировать трек';name.onclick=()=>openTrack(track.id);label.append(name,text('small',track.subtitle,'track-subtitle'),text('small',tasks.length+' карточек','track-count'));
-  const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);const tools=text('div','','track-tools');tools.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));label.append(tools);row.append(label);
+  const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);const tools=text('div','','track-tools');tools.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));label.append(tools);decorateTrack(label,track);row.append(label);
   for(const [index,release] of cols.entries()){
    const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;if(isCollapsed(release.id)&&columnDefault(release.id))cell.dataset.defaultStatus=columnDefault(release.id);cell.style.gridColumn=String(index+2);cell.style.gridRow='1 / span '+(height+1);
    if(!isCollapsed(release.id)&&release.id!=='add-release'){const add=text('button','','add-card');add.type='button';add.innerHTML=toolIcon('plus');add.title='Создать карточку';add.setAttribute('aria-label','Создать карточку: '+track.title+' / '+release.title);add.onclick=()=>openTaskEditor(null,track.id,release.id);cell.append(add)}row.append(cell);
@@ -120,4 +123,8 @@ function draw(full=true){
  }
  const addTrackCell=text('div','','track add-track'),addTrack=text('button','','add-board-button');addTrack.type='button';addTrack.innerHTML=toolIcon('plus');addTrack.title='Добавить трек';addTrack.setAttribute('aria-label',addTrack.title);addTrack.onclick=()=>openTrack();addTrackCell.append(addTrack);board.append(addTrackCell);const tail=text('div','','add-track-tail');tail.style.gridColumn='2 / -1';board.append(tail);
  saveProjectView();$('counts').textContent=visible+' из '+state.tasks.length+' карточек';$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length;detail();refreshSelects();if(full!==false)window.roadmapCloud?.paint();
+ // Replacing the board temporarily clamps scroll offsets to zero. Restore only
+ // after the complete layout exists; the browser still clamps at real bounds.
+ scroller.scrollTop=scrollTop;scroller.scrollLeft=scrollLeft;
+ if(window.scrollX!==pageX||window.scrollY!==pageY)window.scrollTo({left:pageX,top:pageY,behavior:'instant'});
 }

@@ -45,6 +45,7 @@ begin
    if jsonb_typeof(p_patch) is distinct from 'object' or p_patch='{}'::jsonb or octet_length(p_patch::text)>65536 then raise sqlstate 'PT400' using message='Нужен непустой объект изменений до 64 КиБ.'; end if;
    for field,entry in select * from jsonb_each(p_patch) loop
     if field not in ('title','description','accept','comment','track','release','releaseEnd','status') or (jsonb_typeof(entry) is distinct from 'string' and not (field='releaseEnd' and entry='null'::jsonb)) then raise sqlstate 'PT400' using message='Неизвестное поле или неверный тип изменения карточки.'; end if;
+    if field='icon' and entry<>'null'::jsonb and (entry#>>'{}') !~ '^([a-z][a-z0-9-]{0,39})?$' or field='color' and entry<>'null'::jsonb and (entry#>>'{}') !~ '^(#[0-9a-fA-F]{6})?$' then raise sqlstate 'PT400' using message='Некорректное оформление трека.'; end if;
     if (field='title' and length(btrim(entry#>>'{}')) not between 1 and 180) or (field='description' and length(entry#>>'{}')>12000) or (field='accept' and length(entry#>>'{}')>6000) or (field='comment' and length(entry#>>'{}')>1000) then raise sqlstate 'PT400' using message='Превышена длина поля карточки или пустое название.'; end if;
    end loop;
    task:=task||p_patch;
@@ -142,10 +143,11 @@ begin
    if p_patch is not null and jsonb_typeof(p_patch) is distinct from 'object' then raise sqlstate 'PT400' using message='Нужен объект полей.'; end if;
    if coalesce(p_patch,'{}'::jsonb)='{}'::jsonb and p_position is null then raise sqlstate 'PT400' using message='Не заданы поля или позиция.'; end if;
    for field,entry in select * from jsonb_each(coalesce(p_patch,'{}'::jsonb)) loop
-    if field not in ('title',case when p_kind='tracks' then 'subtitle' else 'note' end,case when p_kind='releases' then 'defaultStatus' else 'subtitle' end) or (jsonb_typeof(entry) is distinct from 'string' and not (field='defaultStatus' and entry='null'::jsonb)) then raise sqlstate 'PT400' using message='Неизвестное поле или неверный тип.'; end if;
+    if not (field='title' or p_kind='tracks' and field in ('subtitle','icon','color') or p_kind='releases' and field in ('note','defaultStatus')) or (jsonb_typeof(entry) is distinct from 'string' and not (field in ('defaultStatus','icon','color') and entry='null'::jsonb)) then raise sqlstate 'PT400' using message='Неизвестное поле или неверный тип.'; end if;
+    if field='icon' and entry<>'null'::jsonb and (entry#>>'{}') !~ '^([a-z][a-z0-9-]{0,39})?$' or field='color' and entry<>'null'::jsonb and (entry#>>'{}') !~ '^(#[0-9a-fA-F]{6})?$' then raise sqlstate 'PT400' using message='Некорректное оформление трека.'; end if;
     if (field='title' and length(btrim(entry#>>'{}')) not between 1 and 100) or (field='subtitle' and length(entry#>>'{}')>300) or (field='note' and length(entry#>>'{}')>200) then raise sqlstate 'PT400' using message='Превышена длина поля или пустое название.'; end if;
    end loop;
-   entity:=entity||coalesce(p_patch,'{}'::jsonb);if entity->'defaultStatus'='null'::jsonb then entity:=entity-'defaultStatus'; end if;
+   entity:=entity||coalesce(p_patch,'{}'::jsonb);foreach field in array array['icon','color'] loop if p_kind='tracks' and entity->field='null'::jsonb then entity:=entity-field;end if;end loop;if entity->'defaultStatus'='null'::jsonb then entity:=entity-'defaultStatus'; end if;
    if p_kind='releases' and coalesce(entity->>'defaultStatus','')<>'' then next_data:=jsonb_set(next_data,'{formatVersion}','2'::jsonb); end if;
    if p_position is not null and (p_position<0 or p_position>jsonb_array_length(items)-case when p_action='create' then 0 else 1 end) then raise sqlstate 'PT400' using message='Позиция вне списка.'; end if;
    index_value:=coalesce(p_position,entity_index,jsonb_array_length(items));
@@ -192,6 +194,43 @@ begin
 end $$;
 revoke all on function public.roadmap_integration_structure(uuid,text,text,text,bigint,jsonb,integer,text,text,text,text,integer,integer) from public;
 grant execute on function public.roadmap_integration_structure(uuid,text,text,text,bigint,jsonb,integer,text,text,text,text,integer,integer) to anon,authenticated;
+
+-- Point updates to project metadata retain unknown fields and use the same CAS.
+create or replace function public.roadmap_integration_project(p_project_id uuid,p_expected bigint,p_patch jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare capability roadmap_private.integration_tokens;current_row public.roadmap_projects;next_data jsonb;metadata jsonb;field text;entry jsonb;
+begin
+ capability:=roadmap_private.integration_authorize(p_project_id,'write');
+ select * into current_row from public.roadmap_projects p where p.owner=capability.owner and p.id=p_project_id;
+ if current_row.id is null then raise sqlstate 'PT404' using message='Проект не найден.';end if;
+ if current_row.deleted then raise sqlstate 'PT410' using message='Проект удалён.';end if;
+ if p_expected is null or p_expected<1 then raise sqlstate 'PT400' using message='Нужна ревизия.';end if;
+ if p_expected<>current_row.revision then raise sqlstate 'PT409' using message='Проект изменён.';end if;
+ if jsonb_typeof(p_patch) is distinct from 'object' or p_patch='{}'::jsonb then raise sqlstate 'PT400' using message='Нужен непустой объект полей.';end if;
+ for field,entry in select * from jsonb_each(p_patch) loop
+  if field not in ('name','description','color') or (jsonb_typeof(entry) is distinct from 'string' and not(field='color' and entry='null'::jsonb)) then raise sqlstate 'PT400' using message='Неизвестное поле или неверный тип.';end if;
+  if field='name' and length(btrim(entry#>>'{}')) not between 1 and 160 or field='description' and length(entry#>>'{}')>2000 or field='color' and entry<>'null'::jsonb and (entry#>>'{}') !~ '^(#[0-9a-fA-F]{6})?$' then raise sqlstate 'PT400' using message='Некорректные свойства проекта.';end if;
+ end loop;
+ metadata:=current_row.data->'project'||p_patch;if metadata->'color'='null'::jsonb then metadata:=metadata-'color';end if;
+ next_data:=jsonb_set(current_row.data,'{project}',metadata);
+ select * into current_row from roadmap_private.write_project(capability.owner,p_project_id,p_expected,next_data,false);
+ update roadmap_private.integration_tokens set last_used_at=clock_timestamp() where id=capability.id;
+ return jsonb_build_object('id',current_row.id,'revision',current_row.revision,'project',current_row.data->'project');
+end $$;
+revoke all on function public.roadmap_integration_project(uuid,bigint,jsonb) from public;
+grant execute on function public.roadmap_integration_project(uuid,bigint,jsonb) to anon,authenticated;
+
+-- Version discovery uses the same project-scoped integration authorization.
+create or replace function public.roadmap_integration_capabilities(p_project_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare capability roadmap_private.integration_tokens;
+begin
+ capability:=roadmap_private.integration_authorize(p_project_id,'read');
+ if not exists(select 1 from public.roadmap_projects p where p.owner=capability.owner and p.id=p_project_id and not p.deleted) then raise sqlstate 'PT410' using message='Проект недоступен.';end if;
+ return jsonb_build_object('api_version','1.1','compatible_major',1,'features',jsonb_build_array('cards','comments','changes','tracks','releases','track-appearance','project-appearance'),'track_fields',jsonb_build_array('title','subtitle','icon','color'),'project_fields',jsonb_build_array('name','description','color'),'concurrency','expected revision required','catalog_url','https://graphgiraffe.github.io/ROADMAPler/api/capabilities.json','plugin_manifest_url','https://graphgiraffe.github.io/ROADMAPler/api/agent-plugin/manifest.json');
+end $$;
+revoke all on function public.roadmap_integration_capabilities(uuid) from public;
+grant execute on function public.roadmap_integration_capabilities(uuid) to anon,authenticated;
 
 notify pgrst, 'reload schema';
 commit;

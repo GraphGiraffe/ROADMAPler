@@ -845,3 +845,58 @@ test('mobile release comments collapse, persist per project and preserve full te
   await page.locator('#project-tab-'+initial.second).click();assert.equal(await disclosure.evaluate(el=>el.open),false);
   await page.locator('#project-tab-'+initial.first).click();assert.equal(await disclosure.evaluate(el=>el.open),true);
 });
+
+test('visibility redraw preserves board scroll in both directions',async()=>{
+  const {page}=await device();await page.setViewportSize({width:390,height:850});
+  await page.evaluate(data=>{const next=roadmapApp.getVault();const task=data.tasks[0];data.releases=Array.from({length:9},(_,i)=>({id:'r'+i,title:'Release '+i}));data.tracks=Array.from({length:25},(_,i)=>({id:'t'+i,title:'Track '+i,subtitle:''}));data.tasks=data.tracks.map((t,i)=>({...task,id:'task'+i,track:t.id,release:'r0',title:'Card '+i}));next.projects[0].data=data;roadmapApp.saveVault(next,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+  const position=()=>page.locator('.board-scroll').evaluate(el=>({top:el.scrollTop,left:el.scrollLeft}));
+  await page.locator('.board-scroll').evaluate(el=>{el.scrollTop=500;el.scrollLeft=240});
+  const before=await position();assert.ok(before.top>0&&before.left>0);
+  for(const action of [()=>page.locator('.track-row[data-track="t7"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.track-row[data-track="t7"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.head[data-release="r2"] .visibility-button').evaluate(el=>el.click()),()=>page.locator('.head[data-release="r2"] .visibility-button').evaluate(el=>el.click())]){
+    await action();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));assert.deepEqual(await position(),before);
+  }
+});
+
+test('track icons and colors are editable, undoable and retained by project reload',async()=>{
+ const {page}=await device();
+ await page.evaluate(()=>openTrack(state.tracks[0].id));
+ await page.locator('#trackIcons button[aria-label="Эксперименты"]').click();
+ await page.locator('#trackColor').fill('#1357ab');await page.locator('#saveTrack').click();
+ await page.locator('#trackDialog').waitFor({state:'hidden'});
+ const track=await page.evaluate(()=>state.tracks[0]);assert.equal(track.icon,'flask');assert.equal(track.color,'#1357ab');
+ const label=page.locator('.track-row>.track').first();assert.equal(await label.locator('.name-button svg').count(),1);
+ assert.equal(await label.evaluate(el=>el.style.getPropertyValue('--track-color')),'#1357ab');
+ await page.locator('#undo').click();assert.equal(await page.evaluate(()=>state.tracks[0].icon),undefined);
+ await page.locator('#redo').click();await page.reload();await page.waitForFunction(()=>window.roadmapApp);
+ assert.equal(await page.evaluate(()=>state.tracks[0].icon),'flask');assert.equal(await page.evaluate(()=>state.tracks[0].color),'#1357ab');
+ await page.setViewportSize({width:390,height:850});await page.screenshot({path:join(root,'tmp_files','track-appearance-mobile.png')});
+ await page.evaluate(()=>openTrack(state.tracks[0].id));await page.screenshot({path:join(root,'tmp_files','track-icon-picker-mobile.png')});await page.locator('#trackColor').fill('bad');await page.locator('#saveTrack').click();assert.equal(await page.locator('#trackDialog').evaluate(el=>el.open),true);
+});
+
+test('compact headers are per-project preferences and keep hidden controls usable',async()=>{
+ const {page}=await device();await page.setViewportSize({width:390,height:850});
+ await page.evaluate(()=>{const v=roadmapApp.getVault(),other=roadmapApp.emptyProject();v.projects.push(other);roadmapApp.saveVault(v,true);$('compactBoard').checked=true;$('compactBoard').dispatchEvent(new Event('change'));saveProjectView();flushProjectViews()});
+ assert.equal(await page.locator('.board-scroll').evaluate(el=>el.classList.contains('compact-board')),true);
+ await page.reload();await page.waitForFunction(()=>window.roadmapApp);assert.equal(await page.locator('#compactBoard').isChecked(),true);
+ await page.evaluate(()=>toggleRelease('backlog'));assert.equal(await page.locator('.collapsed-head .visibility-button').first().isVisible(),true);
+});
+
+test('mobile track title remains visible within a tall track while scrolling',async()=>{
+ const {page}=await device();await page.setViewportSize({width:390,height:850});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.tracks=[{id:'sticky',title:'Эксперименты',icon:'flask',color:'#528f8b'}];data.releases=[{id:'r',title:'Экспериментальный этап с длинным названием'}];const task=data.tasks[0];data.tasks=Array.from({length:15},(_,i)=>({...task,id:'task-'+i,track:'sticky',release:'r',title:'Измерение '+i}));v.projects[0].data=data;roadmapApp.saveVault(v,true);$('compactBoard').checked=true;$('compactBoard').dispatchEvent(new Event('change'))},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ await page.locator('.board-scroll').evaluate(el=>{el.scrollTop=220});
+ const rect=await page.evaluate(()=>{const viewport=document.querySelector('.board-scroll').getBoundingClientRect(),title=document.querySelector('.track-row .name-button').getBoundingClientRect(),header=document.querySelector('.head[data-release]').getBoundingClientRect();return {viewportTop:viewport.top,titleTop:title.top,titleBottom:title.bottom,headerBottom:header.bottom,headerHeight:header.height}});
+ assert.ok(rect.headerHeight<100);assert.ok(rect.titleTop>=rect.headerBottom-2);assert.ok(rect.titleBottom>rect.viewportTop);
+ await page.screenshot({path:join(root,'tmp_files','compact-sticky-track-mobile.png')});
+});
+
+test('project tab color persists, supports undo and distinguishes projects in both themes',async()=>{
+ const {page}=await device();await page.evaluate(()=>openProjectName());
+ await page.locator('#projectColor').fill('#aa665b');await page.locator('#projectForm button[type="submit"]').click();
+ assert.equal(await page.evaluate(()=>state.project.color),'#aa665b');
+ const tab=page.locator('.project-tab[aria-selected=true]');assert.equal(await tab.evaluate(el=>el.style.getPropertyValue('--project-color')),'#aa665b');
+ for(const theme of ['dark','light']){await page.evaluate(t=>setTheme(t),theme);const color=await tab.evaluate(el=>getComputedStyle(el).borderBottomColor);assert.equal(color,'rgb(170, 102, 91)')}
+ await page.locator('#undo').click();assert.equal(await page.evaluate(()=>state.project.color),undefined);
+ await page.locator('#redo').click();await page.reload();await page.waitForFunction(()=>window.roadmapApp);assert.equal(await page.evaluate(()=>state.project.color),'#aa665b');
+ await page.evaluate(()=>openProjectName());await page.locator('#projectColor').fill('');await page.locator('#projectForm button[type="submit"]').click();assert.equal(await page.evaluate(()=>state.project.color),undefined);
+});

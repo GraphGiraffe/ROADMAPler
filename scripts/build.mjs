@@ -1,4 +1,5 @@
 import { cp, mkdir, rm, writeFile, readdir, readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +44,8 @@ async function hashDirectory(directory, hash) {
   }
 }
 await buildAgentPackage(new URL('api/agent-plugin/', output));
+const contractContext=vm.createContext({});vm.runInContext(await readFile(new URL('app/project-format.js',source),'utf8'),contractContext);
+await writeFile(new URL('api/capabilities.json',output),JSON.stringify({apiVersion:'1.1',compatibleMajor:1,capabilitiesRPC:'roadmap_integration_capabilities',projectFields:['name','description','color'],projectUpdateRPC:'roadmap_integration_project',trackFields:{icon:{type:['string','null'],maxLength:40},color:{type:['string','null'],pattern:'^#[0-9a-fA-F]{6}$'}},trackIcons:contractContext.RoadmapProjectFormat.trackIcons,pluginManifest:'./agent-plugin/manifest.json'},null,2)+'\n');
 const hash = createHash('sha256');
 await hashDirectory(output, hash);
 const revision = hash.digest('hex').slice(0, 16);

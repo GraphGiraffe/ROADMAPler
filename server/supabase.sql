@@ -34,11 +34,15 @@ create or replace function roadmap_private.validate_project(value jsonb)
 returns void language plpgsql security invoker set search_path = '' as $$
 declare field text; item jsonb; start_index bigint; end_index bigint; status text;
 begin
+ if value ? 'project' and value->'project' ? 'color' and (jsonb_typeof(value->'project'->'color') is distinct from 'string' or (value->'project'->>'color') !~ '^(#[0-9a-fA-F]{6})?$') then raise sqlstate 'PT400' using message='Некорректный цвет проекта.';end if;
  if value is null or value->>'format' is distinct from 'roadmap-project' or jsonb_typeof(value->'formatVersion') is distinct from 'number' or value->'formatVersion' not in ('1'::jsonb,'2'::jsonb) or jsonb_typeof(value->'project'->'name') is distinct from 'string' then raise sqlstate 'PT400' using message='Неподдерживаемый проект.'; end if;
  foreach field in array array['tracks','releases','tasks','sources'] loop
   if jsonb_typeof(value->field) is distinct from 'array' then raise sqlstate 'PT400' using message='Некорректный список проекта.'; end if;
  end loop;
  if jsonb_array_length(value->'tracks')=0 then raise sqlstate 'PT400' using message='Проект должен содержать трек.'; end if;
+ for item in select t.item from jsonb_array_elements(value->'tracks') t(item) loop
+  if item ? 'icon' and (jsonb_typeof(item->'icon') is distinct from 'string' or (item->>'icon') !~ '^([a-z][a-z0-9-]{0,39})?$') or item ? 'color' and (jsonb_typeof(item->'color') is distinct from 'string' or (item->>'color') !~ '^(#[0-9a-fA-F]{6})?$') then raise sqlstate 'PT400' using message='Некорректное оформление трека.';end if;
+ end loop;
  foreach field in array array['tracks','releases','tasks'] loop
   if (select count(*) from jsonb_array_elements(value->field))<>(select count(distinct x->>'id') from jsonb_array_elements(value->field) x) then raise sqlstate 'PT400' using message='Идентификаторы должны быть уникальны.'; end if;
   for item in select * from jsonb_array_elements(value->field) loop

@@ -30,3 +30,10 @@ function change(fn,message='Изменения сохранены в этом б
  catch(error){state=JSON.parse(previous);draw();$('statusMessage').textContent='Изменение не сохранено: '+error.message+' Можно экспортировать текущий проект.';return false}
 }
 function restore(from,to){if(!from.length)return;let before;try{const target=readHistory(from.at(-1));before=historyEntry(target.projectOrder!==null);state=target.data;persistProject(vault.active,target.projectOrder);from.pop();to.push(before);RoadmapHistory.trim(undoStack,redoStack,to===redoStack?'redo':'undo');draw();$('statusMessage').textContent='Изменение сохранено. Доступны отмена и повтор.'}catch(error){if(before)state=readHistory(before).data;draw();$('statusMessage').textContent=error.message}}
+
+function trackIcon(id){
+ const entry=RoadmapProjectFormat.trackIcons[id]||RoadmapProjectFormat.trackIcons.folder;
+ const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','1.7');icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');icon.setAttribute('aria-hidden','true');
+ const path=document.createElementNS(icon.namespaceURI,'path');path.setAttribute('d',entry.path);icon.append(path);return icon;
+}
+function decorateTrack(label,track){if(track.color&&/^#[0-9a-fA-F]{6}$/.test(track.color))label.style.setProperty('--track-color',track.color);if(track.icon){label.classList.add('has-track-icon');const name=label.querySelector('.name-button');if(name){name.replaceChildren(trackIcon(track.icon),text('span',track.title,'track-title'))}else {const heading=text('div','','track-mini-heading'),name=label.querySelector('small');heading.append(trackIcon(track.icon));if(name)heading.append(name);label.prepend(heading)}}}
