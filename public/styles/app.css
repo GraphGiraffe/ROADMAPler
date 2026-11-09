@@ -1012,7 +1012,7 @@ header{
   margin:0;
   flex-shrink:0}
 .project-tabs{
-  padding:2px 0 4px}
+  padding:2px 0 8px}
 .project-tab{
   min-height:38px;
   padding:6px 12px}
@@ -1994,7 +1994,7 @@ dialog a{
     min-height:32px;
     padding:5px}
   .project-tabs{
-    padding:0}
+    padding:0 0 8px}
   .project-tabs .project-tab{
     min-height:30px;
     padding:4px 9px;
