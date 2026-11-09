@@ -1686,7 +1686,8 @@ dialog .actions button{
   z-index:1;
   margin:8px;
   min-width:0;
-  align-self:stretch}
+  align-self:start;
+  transition:box-shadow 160ms}
 .track-row>.card.selected{
   z-index:2}
 .track-row>.card .card-open{
