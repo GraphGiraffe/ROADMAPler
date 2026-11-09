@@ -796,3 +796,19 @@ test('cloud GETs stay fresh while reusing CORS preflight authorization', async (
     assert.ok(paths.every(p=>new URL(p,'http://local').searchParams.get('select')==='id,revision,deleted'));
   }finally{await context.close();contexts.delete(context);await new Promise(resolve=>api.close(resolve));}
 });
+
+for (const width of [390,1200]) test(`cards stack independently across releases (${width}px)`, async () => {
+  const {page}=await device();await page.setViewportSize({width,height:850});
+  await page.evaluate(data=>{
+    const next=roadmapApp.getVault();data.formatVersion=2;data.tracks=[{id:'track',title:'Track',subtitle:''}];data.releases=[{id:'first',title:'First'},{id:'second',title:'Second'}];
+    const task={...data.tasks[0],track:'track',status:'idea',description:'',comment:'',accept:''};delete task.releaseEnd;
+    data.tasks=[{...task,id:'tall',release:'first',title:'Очень длинное название карточки '.repeat(5)},{...task,id:'short',release:'second',title:'Короткая'},{...task,id:'next',release:'second',title:'Следующая'},{...task,id:'span',release:'first',releaseEnd:'second',title:'На два релиза'},{...task,id:'last',release:'second',title:'После общей'}];
+    next.projects[0].data=data;roadmapApp.saveVault(next,true);
+  },structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+  const box=id=>page.locator('.card[data-id="'+id+'"]').boundingBox();
+  const tall=await box('tall'),short=await box('short'),next=await box('next'),span=await box('span'),last=await box('last');
+  assert.ok(short.height<tall.height/2,'short card must retain its own height');
+  assert.ok(Math.abs(next.y-(short.y+short.height+8))<2,'second cell stacks without waiting for the tall neighbor');
+  assert.ok(span.y>=Math.max(tall.y+tall.height,next.y+next.height),'spanning card clears both columns');
+  assert.ok(last.y>=span.y+span.height,'following card clears spanning card');
+});

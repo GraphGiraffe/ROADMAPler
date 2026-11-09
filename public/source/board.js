@@ -53,12 +53,26 @@ function createCard(task){
  card.ondragstart=event=>{if(resizingCard){event.preventDefault();return}event.dataTransfer.setData('text/plain',task.id);event.dataTransfer.effectAllowed='move'};
  return card;
 }
+// Stack each column independently; a spanning card waits for every covered column.
+function layoutTrackCards(row){
+ const bottoms=[],cards=[...row.querySelectorAll(':scope > .card')];
+ for(const card of cards){
+  const [start,end]=card.style.gridColumn.split('/').map(Number),style=getComputedStyle(card),before=parseFloat(style.marginTop)||0,after=parseFloat(style.marginBottom)||0;
+  let top=0;for(let col=start;col<end;col++)top=Math.max(top,bottoms[col]||0);
+  card.style.transform='translateY('+top+'px)';
+  const bottom=top+card.getBoundingClientRect().height+before+after;
+  for(let col=start;col<end;col++)bottoms[col]=bottom;
+ }
+ const style=getComputedStyle(row),reserve=parseFloat(style.getPropertyValue('--add-row'))||40,empty=parseFloat(style.getPropertyValue('--empty-row'))||78;
+ row.style.gridTemplateRows='minmax('+Math.max(empty,Math.ceil(Math.max(0,...bottoms.filter(Number.isFinite))+reserve))+'px,auto)';
+}
+const cardSizeObserver=new ResizeObserver(entries=>{for(const row of new Set(entries.map(e=>e.target.parentElement)))if(row?.isConnected)layoutTrackCards(row)});
 function draw(full=true){
  clearTimeout(searchTimer);
  if(full!==false)renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
  const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'var(--col)').join(' ');
  $('filter').replaceChildren();option($('filter'),'all','Все треки');for(const track of state.tracks)option($('filter'),track.id,track.title);$('filter').value=state.tracks.some(t=>t.id===filter)?filter:'all';
- const board=$('board');board.replaceChildren();board.style.gridTemplateColumns=template;
+ const board=$('board');cardSizeObserver.disconnect();board.replaceChildren();board.style.gridTemplateColumns=template;
  const corner=text('div','Треки','head corner');corner.append(text('p','Релизы →'));board.append(corner);
  for(const release of cols){
   const header=text('div','','head');header.dataset.release=release.id;
@@ -78,9 +92,9 @@ function draw(full=true){
   if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}),text('small',track.title));row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
   const tasks=state.tasks.filter(t=>t.track===track.id&&($('showDone').checked||t.status!=='done')&&(!query||(t.title+' '+t.description).toLocaleLowerCase('ru').includes(query)));
   if(query&&!tasks.length)continue;
-  const lanes=[],placements=[];
-  for(const task of tasks){const covered=taskReleases(task).filter(id=>cols.some(column=>column.id===id)&&!isCollapsed(id));if(!covered.length)continue;const start=cols.findIndex(r=>r.id===covered[0]),end=cols.findIndex(r=>r.id===covered.at(-1));let lane=0;while(lanes[lane]?.some(range=>start<=range.end&&end>=range.start))lane++;(lanes[lane]??=[]).push({start,end});placements.push({task,start,end,lane})}
-  const height=lanes.length;row.style.gridTemplateRows=(height?'repeat('+height+', minmax(var(--card-lane),auto)) ':'')+(height?'var(--add-row)':'minmax(var(--empty-row),auto)');
+  const placements=[];
+  for(const task of tasks){const covered=taskReleases(task).filter(id=>cols.some(column=>column.id===id)&&!isCollapsed(id));if(!covered.length)continue;placements.push({task,start:cols.findIndex(r=>r.id===covered[0]),end:cols.findIndex(r=>r.id===covered.at(-1))})}
+  const height=0;
   const label=text('div','','track');label.style.gridRow='1 / span '+(height+1);label.style.gridColumn='1';
   const name=text('button',track.title,'name-button');name.type='button';name.title='Редактировать трек';name.onclick=()=>openTrack(track.id);label.append(name,text('small',track.subtitle,'track-subtitle'),text('small',tasks.length+' карточек','track-count'));
   const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);const tools=text('div','','track-tools');tools.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));label.append(tools);row.append(label);
@@ -88,12 +102,12 @@ function draw(full=true){
    const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;if(isCollapsed(release.id)&&columnDefault(release.id))cell.dataset.defaultStatus=columnDefault(release.id);cell.style.gridColumn=String(index+2);cell.style.gridRow='1 / span '+(height+1);
    if(!isCollapsed(release.id)&&release.id!=='add-release'){const add=text('button','','add-card');add.type='button';add.innerHTML=toolIcon('plus');add.title='Создать карточку';add.setAttribute('aria-label','Создать карточку: '+track.title+' / '+release.title);add.onclick=()=>openTaskEditor(null,track.id,release.id);cell.append(add)}row.append(cell);
   }
-  for(const item of placements){const card=createCard(item.task);card.style.gridColumn=(item.start+2)+' / '+(item.end+3);card.style.gridRow=String(item.lane+1);row.append(card);visible++}
+  for(const item of placements){const card=createCard(item.task);card.style.gridColumn=(item.start+2)+' / '+(item.end+3);card.style.gridRow='1';row.append(card);visible++}
   const clear=()=>row.querySelectorAll('.over').forEach(cell=>cell.classList.remove('over'));
   row.ondragover=event=>{event.preventDefault();clear();const id=releaseAtX(event.clientX);if(id&&id!=='add-release'&&!isCollapsed(id)){event.dataTransfer.dropEffect='move';[...row.querySelectorAll('.row-cell')].find(cell=>cell.dataset.release===id)?.classList.add('over')}};
   row.ondragleave=event=>{if(!row.contains(event.relatedTarget))clear()};
   row.ondrop=event=>{event.preventDefault();clear();const id=event.dataTransfer.getData('text/plain'),release=releaseAtX(event.clientX);if(!release||release==='add-release'||isCollapsed(release)||!state.tasks.some(t=>t.id===id))return;selected=id;moveTask(id,track.id,release,event.target.closest('.card')?.dataset.id)};
-  board.append(row);
+  board.append(row);layoutTrackCards(row);for(const card of row.querySelectorAll(':scope > .card'))cardSizeObserver.observe(card);
  }
  const addTrackCell=text('div','','track add-track'),addTrack=text('button','','add-board-button');addTrack.type='button';addTrack.innerHTML=toolIcon('plus');addTrack.title='Добавить трек';addTrack.setAttribute('aria-label',addTrack.title);addTrack.onclick=()=>openTrack();addTrackCell.append(addTrack);board.append(addTrackCell);const tail=text('div','','add-track-tail');tail.style.gridColumn='2 / -1';board.append(tail);
  saveProjectView();$('counts').textContent=visible+' из '+state.tasks.length+' карточек';$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length;detail();refreshSelects();if(full!==false)window.roadmapCloud?.paint();
