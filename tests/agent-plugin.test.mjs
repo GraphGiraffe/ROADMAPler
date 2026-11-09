@@ -24,7 +24,7 @@ before(async () => {
     let text = ''; for await (const chunk of request) text += chunk;
     requests.push({ url: request.url, headers: request.headers, body: JSON.parse(text) });
     response.writeHead(apiStatus, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(apiStatus === 200 ? { id: project, revision: 7, tokenEcho: token } : { message: 'Denied ' + token, code: 'PT' + apiStatus }));
+    response.end(JSON.stringify(apiStatus === 200 ? request.url.endsWith('/roadmap_integration_capabilities')?{api_version:'1.1',compatible_major:1,features:['track-appearance','project-appearance'],track_fields:['title','subtitle','icon','color'],project_fields:['name','description','color']}:{ id: project, revision: 7, tokenEcho: token } : { message: 'Denied ' + token, code: 'PT' + apiStatus }));
   }).listen(0, '127.0.0.1');
   await new Promise(resolve => api.on('listening', resolve));
   await writeFile(join(directory, 'credentials.json'), JSON.stringify({ projectId: project, token, publishableKey: 'sb_publishable_test', supabaseUrl: `http://127.0.0.1:${api.address().port}` }), { mode: 0o600 });

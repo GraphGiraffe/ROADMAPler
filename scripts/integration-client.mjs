@@ -76,7 +76,9 @@ Tokens are read only from a protected credentials file. Conflicts are never retr
  const response=await fetch(url.href.replace(/\/$/,'')+'/rest/v1/rpc/'+endpoint,{method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000),headers:{apikey:publishableKey,'X-ROADMAPler-Token':token,'Content-Type':'application/json'},body:JSON.stringify(body)});
  let result;try{result=await response.json()}catch{throw Error('Сервер вернул неподдерживаемый ответ.')}
  if(!response.ok){const message=response.status===409?'Конфликт версий: заново прочитайте проект и согласуйте изменения. Повторной записи не было.':result?.message||'Ошибка API '+response.status;throw Object.assign(Error(String(message).replaceAll(token,'[token]')),{status:response.status,code:result?.code})}
- const record=Array.isArray(result)?result[0]:result;if(!record||record.id!==id||!Number.isSafeInteger(Number(record.revision)))throw Error('Некорректный ответ API.');
+ const record=Array.isArray(result)?result[0]:result;
+ if(action==='capabilities'){if(!record||typeof record.api_version!=='string'||!/^1\.\d+$/.test(record.api_version)||record.compatible_major!==1||!Array.isArray(record.features)||!Array.isArray(record.track_fields)||!Array.isArray(record.project_fields))throw Error('Неподдерживаемый ответ возможностей API.')}
+ else if(!record||record.id!==id||!Number.isSafeInteger(Number(record.revision)))throw Error('Некорректный ответ API.');
  const text=JSON.stringify(record,null,2).replaceAll(token,'[token]')+'\n';
  if(options['--out'])await writeFile(options['--out'],text,{mode:0o600,flag:'wx'});else io.stdout.write(text);
  return JSON.parse(text);
