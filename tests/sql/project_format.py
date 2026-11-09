@@ -49,6 +49,8 @@ try:
     for _ in range(2):
         require((ROOT / 'server/integrations.sql').read_text())
         require((ROOT / 'server/integration-api.sql').read_text())
+    require((ROOT / 'server/track-appearance-update.sql').read_text())
+    require((ROOT / 'server/track-appearance-update.sql').read_text())
     require((ROOT / 'tests/sql/integration_auth.sql').read_text())
     print("PASS integration authorization: anon/authenticated, full/card/structure/delta RPCs, permissions, expiry, revoke, owner/project isolation, revisions, tombstones, private helper, repeatable upgrade.")
 finally:

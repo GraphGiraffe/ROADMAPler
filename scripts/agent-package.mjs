@@ -29,7 +29,7 @@ function zip(files) {
 export async function buildAgentPackage(output) {
   const files = new Map();
   // Explicit publish allowlist: never package files merely because they exist locally.
-  const sourceFiles = ['plugin.json', 'mcp.json', 'README.md', 'server/mcp.mjs', 'server/tools.mjs',
+  const sourceFiles = ['plugin.json', 'mcp.json', 'README.md', 'server/mcp.mjs', 'server/tools.mjs', 'server/update.mjs',
     'skills/roadmap-connect/SKILL.md', 'skills/roadmap-plan/SKILL.md', 'skills/roadmap-maintain/SKILL.md'];
   for (const path of sourceFiles) {
     const url = new URL('agent-plugin/' + path, root);
@@ -46,10 +46,12 @@ export async function buildAgentPackage(output) {
     files.set(name, await readFile(new URL(name, root)));
   }
   const archive = zip(files), digest = createHash('sha256').update(archive).digest('hex'), archiveName = 'roadmapler-agent-' + manifest.version + '-' + digest.slice(0,12) + '.zip';
-  const descriptor = { schemaVersion: 1, name: manifest.name, version: manifest.version, compatibility: { node: '>=22', plugin: 'Agent Plugins 1.0; Codex compatibility manifest', transport: 'MCP stdio', protocolVersions: ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'] }, archive: { url: archiveName, bytes: archive.length, sha256: digest }, skills: 3, tools: 18, credentialsIncluded: false };
+  const bootstrap=files.get('server/update.mjs');
+  const descriptor = { bootstrap:{url:'update.mjs',bytes:bootstrap.length,sha256:createHash('sha256').update(bootstrap).digest('hex')}, schemaVersion: 1, name: manifest.name, version: manifest.version, compatibility: { node: '>=22', plugin: 'Agent Plugins 1.0; Codex compatibility manifest', transport: 'MCP stdio', protocolVersions: ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'] }, archive: { url: archiveName, bytes: archive.length, sha256: digest }, api:{version:"1.1",capabilitiesURL:"../capabilities.json",discovery:"roadmap_capabilities",updateCheck:"roadmap_plugin_status",update:"roadmap_plugin_update"}, skills: 3, tools: 22, credentialsIncluded: false };
   await mkdir(output, { recursive: true });
   await writeFile(new URL(archiveName, output), archive);
   await writeFile(new URL('manifest.json', output), json(descriptor));
+  await writeFile(new URL('update.mjs', output), bootstrap);
   await writeFile(new URL('README.txt', output), files.get('README.md'));
   return { descriptor, files };
 }
