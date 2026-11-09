@@ -2354,3 +2354,28 @@ dialog label{
 
 /* Board redraw restores its own scroll offsets; avoid competing native anchors. */
 .board-scroll { overflow-anchor:none; }
+
+.track-icon-picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(36px,1fr)); gap:4px; max-height:220px; overflow:auto; }
+.track-icon-picker button { width:36px; min-height:36px; height:36px; padding:7px; }
+.track-icon-picker button[aria-pressed=true] { background:var(--wash); outline:2px solid var(--accent); }
+.track-icon-picker svg,.track>.name-button>svg,.track-mini-heading>svg { width:20px; height:20px; flex:none; }
+.track-color-picker { display:flex; flex-wrap:wrap; gap:6px; }
+.color-swatch { width:32px; height:32px; min-height:32px; border:1px solid var(--line); border-radius:8px; padding:0; }
+.track[style*="--track-color"] { background:color-mix(in srgb,var(--track-color) 22%,var(--paper)); border-inline-start:4px solid var(--track-color); }
+.track>.name-button { display:flex; gap:5px; align-items:center; position:sticky; top:64px; background:inherit; }
+.track-title { min-width:0; overflow-wrap:anywhere; }
+.track-appearance { border:0; padding:0; margin:0; min-width:0; }
+.compact-board .head { min-height:64px; }
+.compact-board .head>p,.compact-board .track-subtitle,.compact-board .track-count { display:none; }
+.compact-board .head h2 .name-button { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; }
+.compact-board .release-note-disclosure:not([open]) { font-size:9px; margin:0; }
+.compact-board .release-note-disclosure>summary { min-height:22px; padding:2px 0; }
+@media(max-width:760px){ .track-icon-picker button { width:40px; height:40px; min-height:40px; } }
+
+.track-mini-heading { display:flex; align-items:center; gap:4px; min-width:0; }
+.collapsed-row { grid-template-rows:minmax(64px,auto); }
+
+@media(max-width:760px){ .track>.name-button { gap:3px; } .track>.name-button>svg { width:16px; height:16px; } }
+
+.project-tab[style*="--project-color"] { border-bottom:3px solid var(--project-color); background:color-mix(in srgb,var(--project-color) 12%,var(--bg)); }
+:root .project-tab[style*="--project-color"][aria-selected=true] { background:color-mix(in srgb,var(--project-color) 28%,var(--paper)); box-shadow:inset 0 0 0 1px var(--project-color); }
