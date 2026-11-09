@@ -707,7 +707,7 @@ dialog .actions{
   padding:12px 8px}
 .add-track-tail{
   border-bottom:1px solid var(--line);
-  background:var(--bg)}
+  background:var(--paper)}
 .board-scroll{
   max-height:70vh;
   max-height:70dvh}
@@ -2339,3 +2339,15 @@ dialog label{
 #cloudConflict .conflict-choices section { min-width:0; }
 #cloudConflict .conflict-choices button, #cloudKeepBoth { width:100%; }
 #cloudConflict .conflict-choices .note { overflow-wrap:anywhere; margin:8px 0 16px; }
+
+/* Collapsed columns share the same bottom toolbar and icon geometry. */
+.collapsed-head>.column-tools { left:0; right:0; justify-content:center; }
+
+.release-note-disclosure { margin:3px 0; font-size:10px; overflow-wrap:anywhere; }
+.release-note-disclosure>summary { cursor:pointer; color:inherit; min-height:28px; padding:5px 0; }
+.release-note-disclosure>p { white-space:pre-wrap; }
+@media(max-width:760px){
+ .head h2 .name-button { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+ .release-note-disclosure { font-size:10px; }
+ .board-scroll { overscroll-behavior-x:contain; }
+}

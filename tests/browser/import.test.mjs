@@ -812,3 +812,36 @@ for (const width of [390,1200]) test(`cards stack independently across releases 
   assert.ok(span.y>=Math.max(tall.y+tall.height,next.y+next.height),'spanning card clears both columns');
   assert.ok(last.y>=span.y+span.height,'following card clears spanning card');
 });
+
+for(const width of [390,1200]) test(`board footer and collapsed controls share table styling (${width}px)`,async()=>{
+  const {page}=await device();await page.setViewportSize({width,height:850});
+  await page.evaluate(data=>{const next=roadmapApp.getVault();next.projects[0].data=data;roadmapApp.saveVault(next,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+  const geometry=selector=>page.locator(selector).first().evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),svg=el.querySelector('svg').getBoundingClientRect();return {width:r.width,height:r.height,radius:s.borderRadius,svgWidth:svg.width,svgHeight:svg.height}});
+  const expanded=await geometry('.column-tools .visibility-button');
+  await page.evaluate(()=>{hiddenReleases.add(state.releases[0].id);hiddenTracks.add(state.tracks[0].id);draw()});
+  assert.deepEqual(await geometry('.collapsed-head .visibility-button'),expanded);
+  assert.deepEqual(await geometry('.collapsed-track .visibility-button'),expanded);
+  const aligned=await page.locator('.collapsed-head').first().evaluate(el=>{const a=el.getBoundingClientRect(),b=el.querySelector('.visibility-button').getBoundingClientRect();return {center:Math.abs((a.left+a.right-b.left-b.right)/2),bottom:a.bottom-b.bottom}});
+  assert.ok(aligned.center<1);assert.ok(aligned.bottom<8);
+  for(const theme of ['light','dark']){
+    await page.evaluate(theme=>setTheme(theme),theme);
+    const colors=await page.evaluate(()=>['.add-track','.add-track-tail'].map(s=>getComputedStyle(document.querySelector(s)).backgroundColor));assert.equal(colors[0],colors[1]);
+  }
+  await page.screenshot({path:join(root,'tmp_files',`board-controls-${width}.png`)});
+});
+
+test('mobile release comments collapse, persist per project and preserve full text',async()=>{
+  const {page}=await device();await page.setViewportSize({width:390,height:850});
+  const note='Подробный комментарий релиза. '.repeat(18);
+  const initial=await page.evaluate(({data,note})=>{const next=roadmapApp.getVault();data.releases[0].note=note;next.projects[0].data=data;const other=roadmapApp.emptyProject();other.data=structuredClone(data);next.projects.push(other);roadmapApp.saveVault(next,true);return {first:next.active,second:other.id}}, {data:structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data),note});
+  const disclosure=page.locator('.release-note-disclosure').first();
+  assert.equal(await disclosure.evaluate(el=>el.open),false);
+  const compact=await page.locator('.head[data-release]').first().boundingBox();
+  await disclosure.locator('summary').click();await page.waitForFunction(()=>document.querySelector('.release-note-disclosure').open);
+  assert.equal(await disclosure.locator('.release-note').textContent(),note);
+  assert.ok((await page.locator('.head[data-release]').first().boundingBox()).height>compact.height);
+  await page.evaluate(()=>{saveProjectView();flushProjectViews()});await page.reload();await page.waitForFunction(()=>window.roadmapApp);
+  assert.equal(await disclosure.evaluate(el=>el.open),true);
+  await page.locator('#project-tab-'+initial.second).click();assert.equal(await disclosure.evaluate(el=>el.open),false);
+  await page.locator('#project-tab-'+initial.first).click();assert.equal(await disclosure.evaluate(el=>el.open),true);
+});

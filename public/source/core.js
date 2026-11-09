@@ -4,7 +4,7 @@ let searchTimer=null;
 const $=id=>document.getElementById(id),clone=v=>JSON.parse(JSON.stringify(v));
 let state=JSON.parse($('roadmapData').textContent),selected=state.tasks.find(t=>t.release==='backlog')?.id||state.tasks[0]?.id,editingRelease=null;
 let showBacklog=document.documentElement.dataset.backlog!=='hidden';
-const hiddenTracks=new Set(),hiddenReleases=new Set();
+const hiddenTracks=new Set(),hiddenReleases=new Set(),noteVisibility=new Map();
 const undoStack=[],redoStack=[],labels=RoadmapProjectFormat.labels;
 function option(select,value,title){const o=document.createElement('option');o.value=value;o.textContent=title;select.append(o)}
 function text(tag,value,className){const n=document.createElement(tag);n.textContent=value;if(className)n.className=className;return n}
