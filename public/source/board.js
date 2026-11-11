@@ -1,6 +1,6 @@
 let releaseWidthPreview=null,releaseResizeCancel=null;
 // Width is a portable layout hint; unsupported values keep the single-column layout.
-function releaseColumnCount(release){if(releaseWidthPreview&&releaseWidthPreview.id===release?.id)return releaseWidthPreview.count;return Number.isInteger(release?.columnCount)&&release.columnCount>=1&&release.columnCount<=5?release.columnCount:1}
+function releaseColumnCount(release){if(releaseWidthPreview&&releaseWidthPreview.id===release?.id)return releaseWidthPreview.count;const count=release?.id==='backlog'?state.backlogColumnCount:release?.columnCount;return Number.isInteger(count)&&count>=1&&count<=5?count:1}
 function releaseGrid(cols){let line=2;return cols.map(release=>{const start=line;line+=isCollapsed(release.id)?1:releaseColumnCount(release);return {start,end:line}})}
 function releaseTemplate(cols){return 'var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'repeat('+releaseColumnCount(r)+',var(--col))').join(' ')}
 function previewReleaseColumns(cols){
@@ -43,9 +43,9 @@ function setTaskRange(task,start,end=start){
 }
 function normalizeRanges(){for(const task of state.tasks)if(task.releaseEnd){const a=state.releases.findIndex(r=>r.id===task.release),b=state.releases.findIndex(r=>r.id===task.releaseEnd);if(a>b)[task.release,task.releaseEnd]=[task.releaseEnd,task.release];if(a===b)delete task.releaseEnd}}
 function moveTask(id,track,release,beforeId=null){
- change(()=>{const task=state.tasks.find(t=>t.id===id);if(!task)return;const duration=task.release==='backlog'?1:taskReleases(task).length;task.track=track;
+ change(()=>{const task=state.tasks.find(t=>t.id===id);if(!task)return;const changedRelease=task.release!==release,duration=task.release==='backlog'?1:taskReleases(task).length;task.track=track;
  if(release==='backlog')setTaskRange(task,release);else{const index=state.releases.findIndex(r=>r.id===release);setTaskRange(task,release,state.releases[Math.min(state.releases.length-1,index+duration-1)].id)}
- const status=columnDefault(release);if(status)task.status=status;
+ const status=columnDefault(release);if(changedRelease&&status)task.status=status;
  if(beforeId&&beforeId!==id){state.tasks=state.tasks.filter(t=>t.id!==id);const index=state.tasks.findIndex(t=>t.id===beforeId);state.tasks.splice(index<0?state.tasks.length:index,0,task)}
  });
 }
