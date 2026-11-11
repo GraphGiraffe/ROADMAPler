@@ -964,3 +964,31 @@ for(const width of [390,1600]) test(`dragging release header previews width and 
  await page.screenshot({path:join(root,'tmp_files',`release-width-handle-${width}.png`)});
  if(touch)await touch.detach();
 });
+
+test('reordering within a release preserves card status and defaults apply only across releases',async()=>{
+ const {page}=await device();
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.formatVersion=2;data.tracks=[{id:'first',title:'First'},{id:'second',title:'Second'}];data.releases=[{id:'a',title:'A',defaultStatus:'planned',columnCount:3},{id:'b',title:'B',defaultStatus:'check'},{id:'c',title:'C'}];data.backlogDefaultStatus='idea';const task={...data.tasks[0],track:'first',release:'a',status:'done'};delete task.releaseEnd;data.tasks=[{...task,id:'one'},{...task,id:'two'},{...task,id:'span',releaseEnd:'b'},{...task,id:'backlog-card',release:'backlog'}];v.projects[0].data=data;roadmapApp.saveVault(v,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ const task=id=>page.evaluate(id=>state.tasks.find(t=>t.id===id),id);
+ await page.evaluate(()=>moveTask('two','first','a','one'));assert.equal((await task('two')).status,'done');assert.equal(await page.evaluate(()=>state.tasks[0].id),'two');
+ await page.evaluate(()=>moveTask('two','second','a'));assert.equal((await task('two')).status,'done');
+ await page.evaluate(()=>moveTask('span','second','a'));assert.equal((await task('span')).status,'done');assert.equal((await task('span')).releaseEnd,'b');
+ await page.evaluate(()=>moveTask('backlog-card','second','backlog'));assert.equal((await task('backlog-card')).status,'done');
+ await page.evaluate(()=>moveTask('two','second','b'));assert.equal((await task('two')).status,'check');await page.locator('#undo').click();assert.equal((await task('two')).status,'done');await page.locator('#redo').click();assert.equal((await task('two')).status,'check');
+ await page.evaluate(()=>moveTask('two','second','c'));assert.equal((await task('two')).status,'check');
+ await page.evaluate(()=>moveTask('two','first','backlog'));assert.equal((await task('two')).status,'idea');
+});
+
+for(const width of [390,1200]) test(`backlog width is configurable only in settings and persists (${width}px)`,async()=>{
+ const {page}=await device();await page.setViewportSize({width,height:900});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.tracks=[{id:'t',title:'T'}];data.releases=[{id:'r',title:'Release'}];const task={...data.tasks[0],track:'t',release:'backlog'};delete task.releaseEnd;data.tasks=Array.from({length:6},(_,i)=>({...task,id:'back-'+i,title:'Backlog '+i}));v.projects[0].data=data;roadmapApp.saveVault(v,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ const header=page.locator('.head[data-release="backlog"]');const base=(await header.boundingBox()).width;
+ for(const count of [2,3,4,5]){
+  await page.evaluate(()=>openRelease('backlog'));await page.locator('#releaseColumns-trigger').click();await page.getByRole('option',{name:count+' столб'+(count===5?'цов':'ца'),exact:true}).click();await page.locator('#saveRelease').click();
+  assert.equal(await page.evaluate(()=>state.backlogColumnCount),count);assert.ok(Math.abs((await header.boundingBox()).width-base*count)<2);assert.equal(await header.locator('.release-resize').count(),0);
+  assert.equal(await page.locator('.card').evaluateAll(els=>new Set(els.map(el=>el.getBoundingClientRect().x)).size),count);
+ }
+ await page.locator('#undo').click();assert.equal(await page.evaluate(()=>state.backlogColumnCount),4);await page.locator('#redo').click();
+ await page.reload();await page.waitForFunction(()=>window.roadmapApp&&roadmapApp.canWrite());assert.equal(await page.evaluate(()=>state.backlogColumnCount),5);
+ await page.evaluate(()=>toggleRelease('backlog'));assert.ok((await header.boundingBox()).width<base);await page.evaluate(()=>toggleRelease('backlog'));assert.ok(Math.abs((await header.boundingBox()).width-base*5)<2);
+ await page.evaluate(()=>openRelease('backlog'));await page.locator('#releaseColumns-trigger').click();await page.getByRole('option',{name:'1 столбец',exact:true}).click();await page.locator('#saveRelease').click();assert.equal(await page.evaluate(()=>state.backlogColumnCount),undefined);assert.ok(Math.abs((await header.boundingBox()).width-base)<2);
+});
