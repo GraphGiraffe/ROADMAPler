@@ -1,6 +1,36 @@
+let releaseWidthPreview=null,releaseResizeCancel=null;
 // Width is a portable layout hint; unsupported values keep the single-column layout.
-function releaseColumnCount(release){return Number.isInteger(release?.columnCount)&&release.columnCount>=1&&release.columnCount<=5?release.columnCount:1}
+function releaseColumnCount(release){if(releaseWidthPreview&&releaseWidthPreview.id===release?.id)return releaseWidthPreview.count;return Number.isInteger(release?.columnCount)&&release.columnCount>=1&&release.columnCount<=5?release.columnCount:1}
 function releaseGrid(cols){let line=2;return cols.map(release=>{const start=line;line+=isCollapsed(release.id)?1:releaseColumnCount(release);return {start,end:line}})}
+function releaseTemplate(cols){return 'var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'repeat('+releaseColumnCount(r)+',var(--col))').join(' ')}
+function previewReleaseColumns(cols){
+ const grid=releaseGrid(cols),template=releaseTemplate(cols),board=$('board');board.style.gridTemplateColumns=template;
+ for(const [index,head] of [...board.querySelectorAll(':scope > .head[data-release]')].entries())head.style.gridColumn=grid[index].start+' / '+grid[index].end;
+ for(const row of board.querySelectorAll(':scope > .track-row')){
+  row.boardGrid=grid;row.style.gridTemplateColumns=template;
+  for(const [index,cell] of [...row.querySelectorAll(':scope > .row-cell')].entries())cell.style.gridColumn=grid[index].start+' / '+grid[index].end;
+  for(const card of row.querySelectorAll(':scope > .card')){const span=card.boardSpan;card.boardPlacement={start:grid[span.start].start,end:grid[span.end].end,lanes:span.lanes}}
+  if(!row.classList.contains('collapsed-row'))layoutTrackCards(row);
+ }
+}
+function saveReleaseWidth(id,count){change(()=>{const release=state.releases.find(r=>r.id===id);if(!release)return;if(count===1)delete release.columnCount;else release.columnCount=count},'Ширина релиза сохранена')}
+function addReleaseWidthHandle(header,release,cols){
+ const handle=text('button','','release-resize');handle.type='button';handle.title='Потяните, чтобы изменить ширину релиза';handle.setAttribute('aria-label','Ширина релиза: '+release.title);handle.setAttribute('role','slider');handle.setAttribute('aria-valuemin','1');handle.setAttribute('aria-valuemax','5');handle.setAttribute('aria-valuenow',String(releaseColumnCount(release)));handle.setAttribute('aria-orientation','horizontal');
+ handle.innerHTML='<svg viewBox="0 0 12 24" aria-hidden="true"><path d="M4 5v14M8 5v14"/></svg>';header.classList.add('resizable-release');header.append(handle);
+ handle.onclick=event=>event.stopPropagation();
+ handle.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();event.stopPropagation();const old=releaseColumnCount(release),count=event.key==='Home'?1:event.key==='End'?5:Math.max(1,Math.min(5,old+(event.key==='ArrowRight'?1:-1)));if(count!==old){saveReleaseWidth(release.id,count);[...$('board').querySelectorAll('.head[data-release]')].find(head=>head.dataset.release===release.id)?.querySelector('.release-resize')?.focus({preventScroll:true})}};
+ handle.onpointerdown=event=>{
+  if(event.button!==0||!event.isPrimary||resizingCard||releaseResizeCancel)return;event.preventDefault();event.stopPropagation();closeSelectMenu();
+  const scroll=$('board').parentElement,old=releaseColumnCount(release),unit=header.getBoundingClientRect().width/old,startX=event.clientX,startScroll=scroll.scrollLeft;
+  let x=startX,count=old,frame,moved=false,finished=false;handle.setPointerCapture(event.pointerId);document.body.classList.add('resizing-release');
+  const preview=()=>{const next=Math.max(1,Math.min(5,Math.round(old+(x-startX+scroll.scrollLeft-startScroll)/unit)));if(next===count)return;count=next;releaseWidthPreview={id:release.id,count};handle.setAttribute('aria-valuenow',String(count));previewReleaseColumns(cols)};
+  const tick=()=>{if(moved){const rect=scroll.getBoundingClientRect();if(x>rect.right-28&&count<5)scroll.scrollLeft+=8;else if(x<rect.left+28&&count>1)scroll.scrollLeft-=8;preview()}frame=requestAnimationFrame(tick)};
+  const move=e=>{if(e.pointerId!==event.pointerId)return;x=e.clientX;moved ||= Math.abs(x-startX)>5;if(moved)preview()};
+  const finish=(commit,redraw=true)=>{if(finished)return;finished=true;cancelAnimationFrame(frame);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up);handle.removeEventListener('pointercancel',cancel);handle.removeEventListener('lostpointercapture',cancel);document.removeEventListener('keydown',escape);window.removeEventListener('blur',cancel);releaseResizeCancel=null;releaseWidthPreview=null;document.body.classList.remove('resizing-release');if(handle.hasPointerCapture(event.pointerId))handle.releasePointerCapture(event.pointerId);if(commit&&count!==old)saveReleaseWidth(release.id,count);else if(redraw){handle.setAttribute('aria-valuenow',String(old));previewReleaseColumns(cols)}};
+  const up=e=>{if(e.pointerId===event.pointerId){move(e);finish(true)}},cancel=()=>finish(false),escape=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(false)}};
+  releaseResizeCancel=()=>finish(false,false);handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);handle.addEventListener('pointercancel',cancel);handle.addEventListener('lostpointercapture',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);frame=requestAnimationFrame(tick);
+ };
+}
 function taskReleases(task){
  if(task.release==='backlog')return ['backlog'];
  const start=state.releases.findIndex(r=>r.id===task.release),end=state.releases.findIndex(r=>r.id===(task.releaseEnd||task.release));
@@ -85,10 +115,11 @@ function releaseNote(release){
  return details;
 }
 function draw(full=true){
+ if(releaseResizeCancel)releaseResizeCancel();
  const scroller=$('board').parentElement,scrollTop=scroller.scrollTop,scrollLeft=scroller.scrollLeft,pageX=window.scrollX,pageY=window.scrollY;
  clearTimeout(searchTimer);scroller.classList.toggle('compact-board',$('compactBoard').checked);
  if(full!==false)renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
- const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],grid=releaseGrid(cols),template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'repeat('+releaseColumnCount(r)+',var(--col))').join(' ');
+ const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],grid=releaseGrid(cols),template=releaseTemplate(cols);
  $('filter').replaceChildren();option($('filter'),'all','Все треки');for(const track of state.tracks)option($('filter'),track.id,track.title);$('filter').value=state.tracks.some(t=>t.id===filter)?filter:'all';
  const board=$('board');cardSizeObserver.disconnect();board.replaceChildren();board.style.gridTemplateColumns=template;
  const corner=text('div','Треки','head corner');corner.append(text('p','Релизы →'));board.append(corner);
@@ -101,7 +132,7 @@ function draw(full=true){
   if(release.note)header.append(releaseNote(release));if(status)header.append(text('p',labels[status],'column-default-label'));
   header.append(text('p',state.tasks.filter(t=>taskReleases(t).includes(release.id)).length+' карточек'));
   const tools=text('div','','column-tools');if(!release.locked){const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать '+(release.id==='backlog'?'backlog':'релиз '+release.title));edit.onclick=()=>openRelease(release.id);tools.append(edit)}
-  tools.append(visibilityButton(false,'Скрыть '+release.title,()=>toggleRelease(release.id)));header.append(tools);board.append(header);
+  tools.append(visibilityButton(false,'Скрыть '+release.title,()=>toggleRelease(release.id)));header.append(tools);if(release.id!=='backlog'&&!release.locked)addReleaseWidthHandle(header,release,cols);board.append(header);
  }
  const query=$('search').value.trim().toLocaleLowerCase('ru');let visible=0;
  for(const track of state.tracks){
@@ -120,7 +151,7 @@ function draw(full=true){
    const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;if(isCollapsed(release.id)&&columnDefault(release.id))cell.dataset.defaultStatus=columnDefault(release.id);cell.style.gridColumn=grid[index].start+' / '+grid[index].end;cell.style.gridRow='1 / span '+(height+1);
    if(!isCollapsed(release.id)&&release.id!=='add-release'){const add=text('button','','add-card');add.type='button';add.innerHTML=toolIcon('plus');add.title='Создать карточку';add.setAttribute('aria-label','Создать карточку: '+track.title+' / '+release.title);add.onclick=()=>openTaskEditor(null,track.id,release.id);cell.append(add)}row.append(cell);
   }
-  for(const item of placements){const card=createCard(item.task);card.boardPlacement={start:grid[item.start].start,end:grid[item.end].end,lanes:!item.task.releaseEnd};card.style.gridRow='1';row.append(card);visible++}
+  for(const item of placements){const card=createCard(item.task);card.boardSpan={start:item.start,end:item.end,lanes:!item.task.releaseEnd};card.boardPlacement={start:grid[item.start].start,end:grid[item.end].end,lanes:!item.task.releaseEnd};card.style.gridRow='1';row.append(card);visible++}
   const clear=()=>row.querySelectorAll('.over').forEach(cell=>cell.classList.remove('over'));
   row.ondragover=event=>{event.preventDefault();clear();const id=releaseAtX(event.clientX);if(id&&id!=='add-release'&&!isCollapsed(id)){event.dataTransfer.dropEffect='move';[...row.querySelectorAll('.row-cell')].find(cell=>cell.dataset.release===id)?.classList.add('over')}};
   row.ondragleave=event=>{if(!row.contains(event.relatedTarget))clear()};
