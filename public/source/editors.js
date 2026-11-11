@@ -10,7 +10,7 @@ for(const id of ['taskName','taskBody'])$(id).oninput=()=>$(id).setCustomValidit
 function openRelease(id=null){
  editingRelease=id;const backlog=id==='backlog',release=backlog?{id,title:'Backlog',note:''}:state.releases.find(r=>r.id===id);
  $('releaseDialogTitle').textContent=backlog?'Настройки backlog':release?'Настройки релиза':'Создать релиз';$('releaseName').value=release?.title||'';$('releaseNote').value=release?.note||'';
- $('releaseName').closest('label').hidden=backlog;$('releaseNote').closest('label').hidden=backlog;$('releasePosition').closest('label').hidden=backlog;
+ $('releaseName').closest('label').hidden=backlog;$('releaseNote').closest('label').hidden=backlog;$('releasePosition').closest('label').hidden=backlog;$('releaseColumns').closest('label').hidden=backlog;$('releaseColumns').value=String(releaseColumnCount(release));
  $('releasePosition').replaceChildren();for(let i=0;i<state.releases.length+(release?0:1);i++)option($('releasePosition'),String(i),String(i+1));$('releasePosition').value=String(release?state.releases.indexOf(release):state.releases.length);
  $('releaseDefaultStatus').replaceChildren();option($('releaseDefaultStatus'),'','Не менять статус');for(const [value,label] of Object.entries(labels))option($('releaseDefaultStatus'),value,label);$('releaseDefaultStatus').value=columnDefault(id)||'';
  $('deleteRelease').hidden=backlog||!release;refreshSelects();$('releaseDialog').showModal();(backlog?$('releaseDefaultStatus-trigger'):$('releaseName')).focus();
@@ -20,6 +20,7 @@ $('releaseForm').onsubmit=event=>{
  event.preventDefault();const backlog=editingRelease==='backlog',title=$('releaseName').value.trim(),status=$('releaseDefaultStatus').value;if(!backlog&&!title){showFieldError($('releaseName'),'Введите название');return}
  const saved=change(()=>{if(backlog){if(status){state.backlogDefaultStatus=status;state.formatVersion=2}else delete state.backlogDefaultStatus;return}
   const note=$('releaseNote').value.trim(),position=Number($('releasePosition').value);let release=state.releases.find(r=>r.id===editingRelease);if(release){release.title=title;release.note=note;state.releases=state.releases.filter(r=>r!==release)}else release={id:'rel-'+crypto.randomUUID(),title,note,locked:false};
+  const columnCount=Number($('releaseColumns').value);if(columnCount>1&&columnCount<=5&&Number.isInteger(columnCount))release.columnCount=columnCount;else delete release.columnCount;
   if(status){release.defaultStatus=status;state.formatVersion=2}else delete release.defaultStatus;state.releases.splice(position,0,release);normalizeRanges();
  });if(saved)$('releaseDialog').close();
 };
