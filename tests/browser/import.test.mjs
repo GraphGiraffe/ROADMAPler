@@ -910,3 +910,34 @@ for (const width of [390,1200]) test(`project tabs reserve space for their scrol
  await tabs.evaluate(el=>{el.scrollLeft=el.scrollWidth});assert.ok(await tabs.evaluate(el=>el.scrollLeft>0));
  await page.locator('#newProject').click();assert.equal(await page.locator('#projectDialog').evaluate(el=>el.open),true);
 });
+
+for(const width of [390,1200]) test(`release widths pack cards into independent columns (${width}px)`,async()=>{
+ const {page}=await device();await page.setViewportSize({width,height:850});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.formatVersion=2;data.tracks=[{id:'track',title:'Track'}];data.releases=[{id:'wide',title:'Wide'},{id:'other',title:'Other',columnCount:2}];const task={...data.tasks[0],track:'track',status:'idea',description:'',comment:''};delete task.releaseEnd;data.tasks=Array.from({length:7},(_,i)=>({...task,id:'lane-'+i,release:'wide',title:i===0?'Длинная карточка '.repeat(12):'Карточка '+i}));data.tasks.push({...task,id:'span',release:'wide',releaseEnd:'other',title:'Диапазон'}, {...task,id:'after',release:'other',title:'После диапазона'});v.projects[0].data=data;roadmapApp.saveVault(v,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ const geometry=()=>page.evaluate(()=>{const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};return {headers:['wide','other'].map(id=>rect(document.querySelector('.head[data-release="'+id+'"]'))),cards:Object.fromEntries([...document.querySelectorAll('.card')].map(el=>[el.dataset.id,rect(el)]))}});
+ const base=(await geometry()).headers[0].width;
+ for(const count of [2,3,4,5]){
+  await page.evaluate(()=>openRelease('wide'));await page.locator('#releaseColumns-trigger').click();await page.getByRole('option',{name:count+' столб'+(count===5?'цов':'ца'),exact:true}).click();await page.locator('#saveRelease').click();
+  const g=await geometry();assert.ok(Math.abs(g.headers[0].width-base*count)<2);const cards=Object.values(g.cards);
+  assert.equal(new Set(Array.from({length:count},(_,i)=>g.cards['lane-'+i].x)).size,count);
+  assert.ok(g.cards['lane-1'].height<g.cards['lane-0'].height);assert.ok(g.cards['span'].y>=Math.max(...Array.from({length:7},(_,i)=>g.cards['lane-'+i].bottom)));
+  assert.ok(Math.abs(g.cards.span.x-(g.headers[0].x+4))<2);assert.ok(Math.abs(g.cards.span.right-(g.headers[1].right-4))<2);assert.ok(g.cards.after.y>=g.cards.span.bottom);
+  for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++){const x=cards[a],y=cards[b];assert.ok(x.right<=y.x||y.right<=x.x||x.bottom<=y.y||y.bottom<=x.y,'cards must not overlap')}
+ }
+ await page.locator('#undo').click();assert.equal(await page.evaluate(()=>state.releases[0].columnCount),4);await page.locator('#redo').click();
+ await page.reload();await page.waitForFunction(()=>window.roadmapApp&&roadmapApp.canWrite());assert.equal(await page.evaluate(()=>state.releases[0].columnCount),5);
+ await page.evaluate(()=>toggleRelease('wide'));assert.ok((await geometry()).headers[0].width<base);await page.evaluate(()=>toggleRelease('wide'));assert.ok(Math.abs((await geometry()).headers[0].width-base*5)<2);
+ await page.locator('.card[data-id="span"] .range-resize').evaluate(el=>{el.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))});assert.equal(await page.evaluate(()=>state.tasks.find(t=>t.id==='span').releaseEnd),undefined);
+ await page.evaluate(()=>{moveTask('lane-1','track','other');openTaskEditor(null,'track','wide')});assert.equal(await page.locator('#taskRelease').inputValue(),'wide');await page.locator('#taskCancel').click();assert.equal(await page.evaluate(()=>state.tasks.find(t=>t.id==='lane-1').release),'other');
+ await page.evaluate(()=>openRelease('wide'));await page.locator('#releaseColumns-trigger').click();await page.getByRole('option',{name:'1 столбец',exact:true}).click();await page.locator('#saveRelease').click();assert.equal(await page.evaluate(()=>state.releases[0].columnCount),undefined);assert.ok(Math.abs((await geometry()).headers[0].width-base)<2);
+});
+
+test('pointer range preview spans widened releases without being reset by card measurement',async()=>{
+ const {page}=await device();await page.setViewportSize({width:1600,height:900});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.formatVersion=2;data.tracks=[{id:'track',title:'Track'}];data.releases=[{id:'wide',title:'Wide',columnCount:2},{id:'other',title:'Other',columnCount:2}];const task={...data.tasks[0],id:'resizable',track:'track',release:'wide',title:'Длинная карточка '.repeat(10),status:'idea',description:''};delete task.releaseEnd;data.tasks=[task];v.projects[0].data=data;roadmapApp.saveVault(v,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ const handle=await page.locator('.range-resize').boundingBox();const target=await page.locator('.head[data-release="other"]').boundingBox();
+ await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down();await page.mouse.move(target.x+10,handle.y+handle.height/2);
+ await page.waitForFunction(()=>{const card=document.querySelector('.card'),last=document.querySelector('.head[data-release="other"]');return Math.abs(card.getBoundingClientRect().right-(last.getBoundingClientRect().right-4))<2});
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const range=await page.locator('.card').evaluate(el=>el.style.gridColumn);assert.equal(range,'2 / 6');await page.mouse.up();assert.equal(await page.evaluate(()=>state.tasks[0].releaseEnd),'other');
+});

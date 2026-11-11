@@ -1,3 +1,6 @@
+// Width is a portable layout hint; unsupported values keep the single-column layout.
+function releaseColumnCount(release){return Number.isInteger(release?.columnCount)&&release.columnCount>=1&&release.columnCount<=5?release.columnCount:1}
+function releaseGrid(cols){let line=2;return cols.map(release=>{const start=line;line+=isCollapsed(release.id)?1:releaseColumnCount(release);return {start,end:line}})}
 function taskReleases(task){
  if(task.release==='backlog')return ['backlog'];
  const start=state.releases.findIndex(r=>r.id===task.release),end=state.releases.findIndex(r=>r.id===(task.releaseEnd||task.release));
@@ -33,7 +36,7 @@ function addRangeHandle(card,task){
   let end=state.releases.findIndex(r=>r.id===oldEnd),x=event.clientX,frame;
   resizingCard=true;card.draggable=false;card.classList.add('resizing');handle.setPointerCapture(event.pointerId);
   const preview=()=>{const id=releaseAtX(x);if(id&&id!=='backlog'){const index=state.releases.findIndex(r=>r.id===id);if(index>=0)end=Math.max(start,index)}else if(x>scroll.getBoundingClientRect().right-30)end=state.releases.length-1;
-   const cols=card.parentElement.boardColumns,covered=cols.map((release,index)=>({index,position:state.releases.findIndex(r=>r.id===release.id),id:release.id})).filter(r=>r.position>=start&&r.position<=end&&!isCollapsed(r.id));if(!covered.length)return;const first=covered[0].index+2,last=covered.at(-1).index+2;card.style.gridColumn=first+' / '+(last+1);handle.setAttribute('aria-label','До релиза '+state.releases[end].title);
+   const cols=card.parentElement.boardColumns,covered=cols.map((release,index)=>({index,position:state.releases.findIndex(r=>r.id===release.id),id:release.id})).filter(r=>r.position>=start&&r.position<=end&&!isCollapsed(r.id));if(!covered.length)return;const grid=card.parentElement.boardGrid;card.style.gridColumn=grid[covered[0].index].start+' / '+grid[covered.at(-1).index].end;handle.setAttribute('aria-label','До релиза '+state.releases[end].title);
   };
   const tick=()=>{const rect=scroll.getBoundingClientRect();if(x>rect.right-38)scroll.scrollLeft+=12;else if(x<rect.left+38)scroll.scrollLeft-=12;preview();frame=requestAnimationFrame(tick)};
   const move=e=>{x=e.clientX;preview()};
@@ -57,7 +60,10 @@ function createCard(task){
 function layoutTrackCards(row){
  const bottoms=[],cards=[...row.querySelectorAll(':scope > .card')];
  for(const card of cards){
-  const [start,end]=card.style.gridColumn.split('/').map(Number),style=getComputedStyle(card),before=parseFloat(style.marginTop)||0,after=parseFloat(style.marginBottom)||0;
+  const placement=card.boardPlacement;let {start,end}=placement;
+  if(placement.lanes){for(let col=start+1;col<end;col++)if((bottoms[col]||0)<(bottoms[start]||0))start=col;end=start+1}
+  card.style.gridColumn=start+' / '+end;
+  const style=getComputedStyle(card),before=parseFloat(style.marginTop)||0,after=parseFloat(style.marginBottom)||0;
   let top=0;for(let col=start;col<end;col++)top=Math.max(top,bottoms[col]||0);
   card.style.transform='translateY('+top+'px)';
   const bottom=top+card.getBoundingClientRect().height+before+after;
@@ -66,7 +72,7 @@ function layoutTrackCards(row){
  const style=getComputedStyle(row),reserve=parseFloat(style.getPropertyValue('--add-row'))||40,empty=parseFloat(style.getPropertyValue('--empty-row'))||78;
  row.style.gridTemplateRows='minmax('+Math.max(empty,Math.ceil(Math.max(0,...bottoms.filter(Number.isFinite))+reserve))+'px,auto)';
 }
-const cardSizeObserver=new ResizeObserver(entries=>{for(const row of new Set(entries.map(e=>e.target.parentElement)))if(row?.isConnected)layoutTrackCards(row)});
+const cardSizeObserver=new ResizeObserver(entries=>{if(resizingCard)return;for(const row of new Set(entries.map(e=>e.target.parentElement)))if(row?.isConnected)layoutTrackCards(row)});
 function releaseNote(release){
  if(release.note.length<=100&&!release.note.includes('\n'))return text('p',release.note,'release-note');
  const details=text('details','','release-note-disclosure'),summary=text('summary','Комментарий');
@@ -82,12 +88,12 @@ function draw(full=true){
  const scroller=$('board').parentElement,scrollTop=scroller.scrollTop,scrollLeft=scroller.scrollLeft,pageX=window.scrollX,pageY=window.scrollY;
  clearTimeout(searchTimer);scroller.classList.toggle('compact-board',$('compactBoard').checked);
  if(full!==false)renderProjectTabs();$('projectName').textContent=state.project?.name||'Проект';$('projectDescription').textContent=state.project?.description||'';
- const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'var(--col)').join(' ');
+ const filter=$('filter').value,cols=[...state.releases.filter(release=>$('showDoneReleases').checked||!completedRelease(release.id)),{id:'add-release'},{id:'backlog',title:'Backlog',note:''}],grid=releaseGrid(cols),template='var(--label) '+cols.map(r=>isCollapsed(r.id)?'var(--collapsed-col)':r.id==='add-release'?'var(--add-col)':'repeat('+releaseColumnCount(r)+',var(--col))').join(' ');
  $('filter').replaceChildren();option($('filter'),'all','Все треки');for(const track of state.tracks)option($('filter'),track.id,track.title);$('filter').value=state.tracks.some(t=>t.id===filter)?filter:'all';
  const board=$('board');cardSizeObserver.disconnect();board.replaceChildren();board.style.gridTemplateColumns=template;
  const corner=text('div','Треки','head corner');corner.append(text('p','Релизы →'));board.append(corner);
- for(const release of cols){
-  const header=text('div','','head');header.dataset.release=release.id;
+ for(const [index,release] of cols.entries()){
+  const header=text('div','','head');header.dataset.release=release.id;header.style.gridColumn=grid[index].start+' / '+grid[index].end;
   const status=columnDefault(release.id);if(status){header.classList.add('has-default');header.dataset.defaultStatus=status;header.append(statusMark(status))}else if(release.id==='backlog')header.classList.add('backlog-head');
   if(isCollapsed(release.id)){header.classList.add('collapsed-head');const tools=text('div','','column-tools');tools.append(visibilityButton(true,'Показать '+release.title,()=>toggleRelease(release.id)));header.append(tools);board.append(header);continue}
   if(release.id==='add-release'){header.classList.add('add-column');const add=text('button','','add-board-button');add.type='button';add.innerHTML=toolIcon('plus');add.title='Добавить релиз';add.setAttribute('aria-label',add.title);add.onclick=()=>openRelease();header.append(add);board.append(header);continue}
@@ -100,7 +106,7 @@ function draw(full=true){
  const query=$('search').value.trim().toLocaleLowerCase('ru');let visible=0;
  for(const track of state.tracks){
   if($('filter').value!=='all'&&$('filter').value!==track.id)continue;
-  const row=text('div','','track-row');row.style.gridTemplateColumns=template;row.boardColumns=cols;row.dataset.track=track.id;
+  const row=text('div','','track-row');row.style.gridTemplateColumns=template;row.boardColumns=cols;row.boardGrid=grid;row.dataset.track=track.id;
   if(hiddenTracks.has(track.id)){row.classList.add('collapsed-row');const label=text('div','','track collapsed-track');label.append(text('small',track.title));const tools=text('div','','track-tools'),edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);tools.append(edit,visibilityButton(true,'Показать трек '+track.title,()=>{hiddenTracks.delete(track.id);draw()}));label.append(tools);decorateTrack(label,track);row.append(label);const fill=text('div','','collapsed-track-fill');fill.style.gridColumn='2 / -1';row.append(fill);board.append(row);continue}
   const tasks=state.tasks.filter(t=>t.track===track.id&&($('showDone').checked||t.status!=='done')&&(!query||(t.title+' '+t.description).toLocaleLowerCase('ru').includes(query)));
   if(query&&!tasks.length)continue;
@@ -111,10 +117,10 @@ function draw(full=true){
   const name=text('button',track.title,'name-button');name.type='button';name.title='Редактировать трек';name.onclick=()=>openTrack(track.id);label.append(name,text('small',track.subtitle,'track-subtitle'),text('small',tasks.length+' карточек','track-count'));
   const edit=text('button','','edit-entity');edit.type='button';edit.innerHTML=toolIcon('edit');edit.setAttribute('aria-label','Редактировать трек '+track.title);edit.onclick=()=>openTrack(track.id);const tools=text('div','','track-tools');tools.append(edit,visibilityButton(false,'Скрыть трек '+track.title,()=>{hiddenTracks.add(track.id);draw()}));label.append(tools);decorateTrack(label,track);row.append(label);
   for(const [index,release] of cols.entries()){
-   const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;if(isCollapsed(release.id)&&columnDefault(release.id))cell.dataset.defaultStatus=columnDefault(release.id);cell.style.gridColumn=String(index+2);cell.style.gridRow='1 / span '+(height+1);
+   const cell=text('div','','cell row-cell'+(isCollapsed(release.id)?' collapsed-cell':release.id==='add-release'?' add-column-lane':release.id==='backlog'?' backlog':''));cell.dataset.track=track.id;cell.dataset.release=release.id;if(isCollapsed(release.id)&&columnDefault(release.id))cell.dataset.defaultStatus=columnDefault(release.id);cell.style.gridColumn=grid[index].start+' / '+grid[index].end;cell.style.gridRow='1 / span '+(height+1);
    if(!isCollapsed(release.id)&&release.id!=='add-release'){const add=text('button','','add-card');add.type='button';add.innerHTML=toolIcon('plus');add.title='Создать карточку';add.setAttribute('aria-label','Создать карточку: '+track.title+' / '+release.title);add.onclick=()=>openTaskEditor(null,track.id,release.id);cell.append(add)}row.append(cell);
   }
-  for(const item of placements){const card=createCard(item.task);card.style.gridColumn=(item.start+2)+' / '+(item.end+3);card.style.gridRow='1';row.append(card);visible++}
+  for(const item of placements){const card=createCard(item.task);card.boardPlacement={start:grid[item.start].start,end:grid[item.end].end,lanes:!item.task.releaseEnd};card.style.gridRow='1';row.append(card);visible++}
   const clear=()=>row.querySelectorAll('.over').forEach(cell=>cell.classList.remove('over'));
   row.ondragover=event=>{event.preventDefault();clear();const id=releaseAtX(event.clientX);if(id&&id!=='add-release'&&!isCollapsed(id)){event.dataTransfer.dropEffect='move';[...row.querySelectorAll('.row-cell')].find(cell=>cell.dataset.release===id)?.classList.add('over')}};
   row.ondragleave=event=>{if(!row.contains(event.relatedTarget))clear()};
