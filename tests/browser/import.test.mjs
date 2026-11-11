@@ -992,3 +992,9 @@ for(const width of [390,1200]) test(`backlog width is configurable only in setti
  await page.evaluate(()=>toggleRelease('backlog'));assert.ok((await header.boundingBox()).width<base);await page.evaluate(()=>toggleRelease('backlog'));assert.ok(Math.abs((await header.boundingBox()).width-base*5)<2);
  await page.evaluate(()=>openRelease('backlog'));await page.locator('#releaseColumns-trigger').click();await page.getByRole('option',{name:'1 столбец',exact:true}).click();await page.locator('#saveRelease').click();assert.equal(await page.evaluate(()=>state.backlogColumnCount),undefined);assert.ok(Math.abs((await header.boundingBox()).width-base)<2);
 });
+
+for(const width of [390,1200]) test(`collapsed release status is top-centered above its show button (${width}px)`,async()=>{
+ const {page}=await device();await page.setViewportSize({width,height:850});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.formatVersion=2;data.releases=['done','planned','idea','check','work','blocked','paused'].map((status,i)=>({id:'status-'+i,title:status,defaultStatus:status}));data.tasks=[];v.projects[0].data=data;roadmapApp.saveVault(v,true);for(const r of state.releases)hiddenReleases.add(r.id);$('compactBoard').checked=true;draw()},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ for(const theme of ['light','dark']){await page.evaluate(theme=>setTheme(theme),theme);const positions=await page.locator('.collapsed-head[data-default-status]').evaluateAll(heads=>heads.map(h=>{const head=h.getBoundingClientRect(),icon=h.querySelector('.status-mark').getBoundingClientRect(),button=h.querySelector('.visibility-button').getBoundingClientRect();return {offset:icon.top-head.top,center:Math.abs((icon.left+icon.right-head.left-head.right)/2),overlap:icon.bottom>button.top}}));assert.equal(positions.length,7);for(const p of positions){assert.ok(p.offset>=4&&p.offset<=8);assert.ok(p.center<1);assert.equal(p.overlap,false)}}
+});
