@@ -941,3 +941,26 @@ test('pointer range preview spans widened releases without being reset by card m
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const range=await page.locator('.card').evaluate(el=>el.style.gridColumn);assert.equal(range,'2 / 6');await page.mouse.up();assert.equal(await page.evaluate(()=>state.tasks[0].releaseEnd),'other');
 });
+
+for(const width of [390,1600]) test(`dragging release header previews width and commits one undoable change (${width}px)`,async()=>{
+ const {page}=await device();await page.setViewportSize({width,height:900});
+ await page.evaluate(data=>{const v=roadmapApp.getVault();data.releases=[{id:'resize',title:'Релиз'},{id:'neighbor',title:'Соседний'}];data.tracks=[{id:'track',title:'Track'}];const task={...data.tasks[0],track:'track',release:'resize'};delete task.releaseEnd;data.tasks=Array.from({length:6},(_,i)=>({...task,id:'c'+i,title:'Карточка '+i}));v.projects[0].data=data;roadmapApp.saveVault(v,true)},structuredClone(fixtures.find(f=>f.name==='unknown-fields-preserved').data));
+ const header=page.locator('.head[data-release="resize"]'),handle=header.locator('.release-resize');const before=await header.boundingBox(),grip=await handle.boundingBox(),x=grip.x+grip.width/2,y=grip.y+grip.height/2;
+ const depth=await page.evaluate(()=>undoStack.length);const target=x+before.width*.7;
+ const touch=width===390?await page.context().newCDPSession(page):null;
+ const sendTouch=(type,x,y)=>touch.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'||type==='touchCancel'?[]:[{x,y,id:1}]});
+ if(touch){await sendTouch('touchStart',x,y);await sendTouch('touchMove',target,y)}else{await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(target,y)}
+ assert.equal(await handle.getAttribute('aria-valuenow'),'2');assert.equal(await page.evaluate(()=>state.releases[0].columnCount),undefined);assert.equal(await page.evaluate(()=>undoStack.length),depth);
+ assert.ok(Math.abs((await header.boundingBox()).width-before.width*2)<2);const cards=await page.locator('.card').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}}));assert.equal(new Set(cards.map(c=>c.x)).size,2);
+ for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++){const x=cards[a],y=cards[b];assert.ok(x.right<=y.x||y.right<=x.x||x.bottom<=y.y||y.bottom<=x.y)}
+ if(touch)await sendTouch('touchEnd',target,y);else await page.mouse.up();
+ assert.equal(await page.evaluate(()=>state.releases[0].columnCount),2);assert.equal(await page.evaluate(()=>undoStack.length),depth+1);
+ await page.locator('#undo').click();assert.equal(await page.evaluate(()=>state.releases[0].columnCount),undefined);await page.locator('#redo').click();assert.equal(await page.evaluate(()=>state.releases[0].columnCount),2);
+ await page.reload();await page.waitForFunction(()=>window.roadmapApp&&roadmapApp.canWrite());assert.equal(await page.evaluate(()=>state.releases[0].columnCount),2);
+ await page.locator('.board-scroll').evaluate(el=>el.scrollLeft=0);const current=await header.boundingBox(),h=await handle.boundingBox(),cx=h.x+h.width/2,cy=h.y+h.height/2;
+ if(touch){await sendTouch('touchStart',cx,cy);await sendTouch('touchMove',cx-current.width*.4,cy);await sendTouch('touchCancel',cx-current.width*.4,cy)}else{await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx-current.width*.4,cy);await page.keyboard.press('Escape');await page.mouse.up()}
+ assert.equal(await page.evaluate(()=>state.releases[0].columnCount),2);assert.equal(await page.evaluate(()=>releaseWidthPreview),null);assert.equal(await handle.getAttribute('aria-valuenow'),'2');assert.ok(Math.abs((await header.boundingBox()).width-current.width)<2);
+ await handle.focus();await page.keyboard.press('End');assert.equal(await page.evaluate(()=>state.releases[0].columnCount),5);await page.keyboard.press('ArrowLeft');assert.equal(await page.evaluate(()=>state.releases[0].columnCount),4);await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>state.releases[0].columnCount),undefined);
+ await page.screenshot({path:join(root,'tmp_files',`release-width-handle-${width}.png`)});
+ if(touch)await touch.detach();
+});
